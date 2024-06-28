@@ -2,6 +2,21 @@
 /************************************************
  *                   macros                     *
  ************************************************/
+// ~ DLL export
+#ifdef OGE_EXPORT
+  #ifdef _MSC_VER
+    #define OGE_API __declspec(dllexport)
+  #else
+    #define OGE_API __attribute__((visibility("default")))
+  #endif
+#else
+  #ifdef _MSC_VER
+    #define OGE_API __declspec(dllimport)
+  #else
+    #define OGE_API
+  #endif
+#endif
+
 // ~ Static assertion
 #ifdef _MSC_VER
   #define _OGE_STATIC_ASSERT static_assert
@@ -31,6 +46,22 @@
 #define GIGABYTES(x) ((x) * 1000ULL * 1000ULL * 1000ULL)
 #define MEGABYTES(x) ((x) * 1000ULL * 1000ULL)
 #define KILOBYTES(x) ((x) * 1000ULL)
+
+/************************************************
+ *                 OGE tokens                   *
+ ************************************************/
+/** @brief True. */
+#define OGE_TRUE 1
+
+/** @brief False. */
+#define OGE_FALSE 0
+
+// Any id set to this should be considered invalid,
+// and not actually pointing to a real object.
+#define OGE_INVALID_ID_U64 18446744073709551615UL
+#define OGE_INVALID_ID_U32 4294967295U
+#define OGE_INVALID_ID_U16 65535U
+#define OGE_INVALID_ID_U8  255U
 
 /************************************************
  *                   types                      *

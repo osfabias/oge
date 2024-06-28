@@ -1,11 +1,11 @@
 project(oge VERSION 0.0.1)
 
 # Setup "oge" library target
-add_library(oge SHARED ./src/init.c)
-
+add_library(oge SHARED
+            ./src/core/engine.c
+            ./src/core/logging.c)
 target_include_directories(oge PUBLIC include)
-
-target_compile_definitions(oge PRIVATE _OGE_EXPORT)
+target_compile_definitions(oge PRIVATE OGE_EXPORT)
 
 # Add platform source files
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -23,7 +23,7 @@ endif()
 
 # Add compile definitions
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_compile_definitions(oge PRIVATE _OGE_DEBUG)
+  target_compile_definitions(oge PRIVATE OGE_DEBUG)
 else()
-  target_compile_definitions(oge PRIVATE _OGE_RELEASE)
+  target_compile_definitions(oge PRIVATE OGE_RELEASE)
 endif()

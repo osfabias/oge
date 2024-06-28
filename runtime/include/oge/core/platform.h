@@ -1,36 +1,35 @@
 #pragma once
 
-#include "oge/internal.h"
+#include "oge/defines.h"
 
-typedef struct _OgePlatformInitInfo {
+typedef struct OgePlatformInitInfo {
   const char *pApplicationName;
   u16 width;
   u16 height;
-} _OgePlatformInitInfo;
+} OgePlatformInitInfo;
 
-b8    _ogePlatformInit(const _OgePlatformInitInfo *pInitInfo);
+b8    ogePlatformInit(const OgePlatformInitInfo *pInitInfo);
+void  ogePlatformTerminate();
 
-void  _ogePlatformTerminate();
+void  ogePlatformPumpMessages();
 
-void  _ogePlatformPumpMessages();
+b8    ogePlatformTerminateRequested();
 
-b8    _ogePlatformTerminateRequested();
+void* ogePlatformAllocate(u64 size, b8 aligned);
+void  ogePlatformDeallocate(void *block, b8 aligned);
+void  ogePlatformMemoryCopy(void *dst, const void *src, u64 size);
+void  ogePlatformMemorySet(void *dst, i32 value, u64 size);
 
-void* _ogePlatformAllocate(u64 size, b8 aligned);
-void  _ogePlatformDeallocate(void *block, b8 aligned);
-void  _ogePlatformMemoryCopy(void *dst, const void *src, u64 size);
-void  _ogePlatformMemorySet(void *dst, i32 value, u64 size);
-
-void  _ogePlatformConsoleWrite(const char *msg, u8 clr);
+void  ogePlatformConsoleWrite(const char *pMessage, u8 color);
 
 /**
  * @brief Returns amount of seconds past since the unix epoch.
  */
-u64   _ogePlatformGetTime();
+f64   ogePlatformGetTime();
 
 /**
  * @brief Sleep on current thread for the given amount of milliseconds.
  *
  * Should only be used for giving time back to the OS for unused update power.
  */
-void  _ogePlatformSleep(u64 ms);
+void  ogePlatformSleep(u64 ms);
