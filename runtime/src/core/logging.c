@@ -4,7 +4,13 @@
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
 
+struct {
+  OgeLogLevel logLevel;
+} ogeLoggingState;
+
 b8 ogeLoggingInit(const OgeLoggingInitInfo *pInitInfo) {
+  ogeLoggingState.logLevel = pInitInfo->logLevel;
+
   // TODO: create log file
   return OGE_TRUE;
 } 
@@ -14,6 +20,8 @@ void ogeLoggingTerminate() {
 }
 
 void ogeLog(OgeLogLevel level, const char *pMessage, ...) {
+  if (level < ogeLoggingState.logLevel) { return; }
+
   // TODO: These string operations are all pretty slow. This needs to be
   // moved to another thread eventually, along with the file writes, to
   // avoid slowing things down while the engine is trying to run.
