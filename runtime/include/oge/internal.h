@@ -3,22 +3,19 @@
  *                   macros                     *
  ************************************************/
 // ~ Static assertion
-#if defined(__clang__) || defined(__GNUC__)
-  #define _OGE_STATIC_ASSERT _Static_assert
-#else
+#ifdef _MSC_VER
   #define _OGE_STATIC_ASSERT static_assert
+#else // clang or gcc
+  #define _OGE_STATIC_ASSERT _Static_assert
 #endif
 
 // ~ Inlining
-#if defined(__clang__) || defined(__gcc__)
-  #define _OGE_INLINE   __attribute__((always_inline)) inline
-  #define _OGE_NOINLINE __attribute__((noinline))
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
   #define _OGE_INLINE   __forceinline
   #define _OGE_NOINLINE __declspec(noinline)
-#else
-  #define _OGE_INLINE static inline
-  #define _OGE_NOINLINE
+#else // clang or gcc
+  #define _OGE_INLINE   __attribute__((always_inline)) inline
+  #define _OGE_NOINLINE __attribute__((noinline))
 #endif
 
 // ~ Utils
@@ -54,12 +51,12 @@ typedef double f64;
 typedef _Bool b8;
 
 // Check sizes to be exact as expected
-_OGE_STATIC_ASSERT(sizeof(u8) == 1, "Expected u8 to be 1 byte.");
+_OGE_STATIC_ASSERT(sizeof(u8) == 1,  "Expected u8 to be 1 byte.");
 _OGE_STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes.");
 _OGE_STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes.");
 _OGE_STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes.");
 
-_OGE_STATIC_ASSERT(sizeof(i8) == 1, "Expected i8 to be 1 byte.");
+_OGE_STATIC_ASSERT(sizeof(i8) == 1,  "Expected i8 to be 1 byte.");
 _OGE_STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes.");
 _OGE_STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes.");
 _OGE_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes.");
