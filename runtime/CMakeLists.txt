@@ -1,8 +1,11 @@
+project(oge VERSION 0.0.1)
+
 # Setup "oge" library target
-file(GLOB_RECURSE OGE_RUNTIME_SOURCE_FILES ./src/oge/*)
-add_library(oge SHARED ${OGE_RUNTIME_SOURCE_FILES})
+add_library(oge SHARED ./src/init.c)
 
 target_include_directories(oge PUBLIC include)
+
+target_compile_definitions(oge PRIVATE _OGE_EXPORT)
 
 # Add platform source files
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
