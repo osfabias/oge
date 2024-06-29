@@ -3,7 +3,9 @@ project(oge VERSION 0.0.1)
 # Setup "oge" library target
 add_library(oge SHARED
             ./src/core/engine.c
-            ./src/core/logging.c)
+            ./src/core/memory.c
+            ./src/core/logging.c
+            )
 target_include_directories(oge PUBLIC include)
 target_compile_definitions(oge PRIVATE OGE_EXPORT)
 
