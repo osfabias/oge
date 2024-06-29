@@ -5,6 +5,7 @@ add_library(oge SHARED
             ./src/core/engine.c
             ./src/core/memory.c
             ./src/core/logging.c
+            ./src/containers/darray.c
             )
 target_include_directories(oge PUBLIC include)
 target_compile_definitions(oge PRIVATE OGE_EXPORT)

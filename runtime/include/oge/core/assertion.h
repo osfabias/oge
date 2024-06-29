@@ -12,7 +12,7 @@
 
 #ifdef OGE_DEBUG 
   #define OGE_ASSERT(x, msg, ...) \
-  if (!(x)) { OGE_FATAL(msg, ...); debugBreak(); }
+  if (!(x)) { OGE_FATAL(msg, ##__VA_ARGS__); debugBreak(); }
 #else
   #define OGE_ASSERT(x, msg, ...)
 #endif

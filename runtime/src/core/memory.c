@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <stdio.h>
 #include <string.h>
 
@@ -49,6 +48,10 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   if (memoryTag == OGE_MEMORY_TAG_UNKNOWN) {
     OGE_WARN("ogeAllocate called with OGE_MEMORY_TAG_UNKNOWN. Set memory tag to different.");
   }
+
+  if (size == 0) {
+    OGE_WARN("ogeAllocate called with 0 size.");
+  }
   #endif
 
   ogeMemoryStats.totalUsage += size;
@@ -79,9 +82,9 @@ void ogeMemorySet(void *block, i32 value, u64 size) {
 }
 
 const char* ogeMemoryGetDebugInfo() {
-  const u32 gb = 1024 * 1024 * 1024;
-  const u32 mb = 1024 * 1024;
-  const u32 kb = 1024;
+  const u32 gib = 1024 * 1024 * 1024;
+  const u32 mib = 1024 * 1024;
+  const u32 kib = 1024;
 
   ogeMemorySet(pDebugInfo, 0, sizeof(pDebugInfo));
   snprintf(pDebugInfo, _MAX_DEBUG_INFO_LENGTH, "Memory usage:\n");
@@ -90,19 +93,19 @@ const char* ogeMemoryGetDebugInfo() {
   for (int i = 0; i < OGE_MEMORY_TAG_MAX_ENUM; ++i) {
     OGE_ASSERT(offset < _MAX_DEBUG_INFO_LENGTH, "Memory debug info string is exceed the limit."); 
 
-    char unit[3] = "Xb";
+    char unit[4] = "Xib";
     f64 amount = ogeMemoryStats.perTagUsage[i];
-    if (amount >= gb) {
+    if (amount >= gib) {
       unit[0] = 'G';
-      amount /= gb;
+      amount /= gib;
     }
-    else if (amount >= mb) {
+    else if (amount >= mib) {
       unit[0] = 'M';
-      amount /= mb;
+      amount /= mib;
     }
-    else if (amount >= kb) {
+    else if (amount >= kib) {
       unit[0] = 'K';
-      amount /= kb;
+      amount /= kib;
     }
     else {
       unit[0] = 'B';
@@ -110,8 +113,11 @@ const char* ogeMemoryGetDebugInfo() {
     }
 
     u16 length = snprintf(pDebugInfo + offset, _MAX_DEBUG_INFO_LENGTH,
-                          "%s : %.2f%s\n", pMemoryTagNames[i], amount, unit);
+                          "%s : %.2f %s\n", pMemoryTagNames[i], amount, unit);
     offset += length;
   }
+
+  // Remove last '\n' symbol
+  pDebugInfo[offset - 1] = '\0';
   return pDebugInfo;
 }

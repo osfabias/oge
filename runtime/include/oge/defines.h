@@ -19,33 +19,33 @@
 
 // ~ Static assertion
 #ifdef _MSC_VER
-  #define _OGE_STATIC_ASSERT static_assert
+  #define OGE_STATIC_ASSERT static_assert
 #else // clang or gcc
   #define _OGE_STATIC_ASSERT _Static_assert
 #endif
 
 // ~ Inlining
 #if defined(_MSC_VER)
-  #define _OGE_INLINE   __forceinline
-  #define _OGE_NOINLINE __declspec(noinline)
+  #define OGE_INLINE   __forceinline
+  #define OGE_NOINLINE __declspec(noinline)
 #else // clang or gcc
-  #define _OGE_INLINE   __attribute__((always_inline)) inline
-  #define _OGE_NOINLINE __attribute__((noinline))
+  #define OGE_INLINE   __attribute__((always_inline)) inline
+  #define OGE_NOINLINE __attribute__((noinline))
 #endif
 
 // ~ Utils
 #define CLAMP(x, l, r) (((x) <= (l)) ? (l) : ((x) >= (r)) ? (r) : (x))
 
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#define OGE_MIN(x, y) ((x) < (y) ? (x) : (y))
+#define OGE_MAX(x, y) ((x) > (y) ? (x) : (y))
 
-#define GIBIBYTES(x) ((x) * 1024ULL * 1024ULL * 1024ULL)
-#define MEBIBYTES(x) ((x) * 1024ULL * 1024ULL)
-#define KIBIBYTES(x) ((x) * 1024ULL)
+#define OGE_GIBIBYTES(x) ((x) * 1024ULL * 1024ULL * 1024ULL)
+#define OGE_MEBIBYTES(x) ((x) * 1024ULL * 1024ULL)
+#define OGE_KIBIBYTES(x) ((x) * 1024ULL)
 
-#define GIGABYTES(x) ((x) * 1000ULL * 1000ULL * 1000ULL)
-#define MEGABYTES(x) ((x) * 1000ULL * 1000ULL)
-#define KILOBYTES(x) ((x) * 1000ULL)
+#define OGE_GIGABYTES(x) ((x) * 1000ULL * 1000ULL * 1000ULL)
+#define OGE_MEGABYTES(x) ((x) * 1000ULL * 1000ULL)
+#define OGE_KILOBYTES(x) ((x) * 1000ULL)
 
 /************************************************
  *                 OGE tokens                   *
