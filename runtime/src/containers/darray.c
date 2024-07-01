@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include "oge/defines.h"
 #include "oge/core/memory.h"
 #include "oge/core/logging.h"
@@ -25,6 +23,7 @@ typedef struct OgeDArrayHeader {
   (((OgeDArrayHeader*)(ptr)) - 1)
 
 void* ogeDArrayAllocate(u64 length, u64 stride) {
+
   OgeDArrayHeader *pDArrayHeader =
     ogeAllocate(DARRAY_SIZE(length, stride), OGE_MEMORY_TAG_DARRAY);
 
@@ -32,12 +31,17 @@ void* ogeDArrayAllocate(u64 length, u64 stride) {
   pDArrayHeader->length   = 0;
   pDArrayHeader->stride   = stride;
 
+  OGE_TRACE("DArray allocated (%p):\ncapacity:%lu\nstride:%lu",
+            pDArrayHeader, length, stride);
+
   return DARRAY_HTOS(pDArrayHeader);
 }
 
 void ogeDArrayDeallocate(void *pDArray) {
   OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
   ogeDeallocate(pDArrayHeader);
+
+  OGE_TRACE("DArray deallocated (%p)", pDArrayHeader);
 }
 
 void* ogeDArrayResize(void *pDArray, u64 length) {
@@ -48,6 +52,8 @@ void* ogeDArrayResize(void *pDArray, u64 length) {
 
   pDArrayHeader->capacity = length;
   pDArrayHeader->length = OGE_MIN(pDArrayHeader->length, length);
+
+  OGE_TRACE("DArray resized (%p -> %p): %lu", DARRAY_STOH(pDArray), pDArrayHeader, length);
 
   return DARRAY_HTOS(pDArrayHeader);
 }
