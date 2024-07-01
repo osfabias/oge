@@ -1,5 +1,3 @@
-#include "oge/containers/darray.h"
-#include "oge/core/memory.h"
 #include "oge/oge.h"
 
 // OGE configuration
@@ -21,22 +19,6 @@ OgeInitInfo ogeInitInfo = {
 
 // Application functions
 b8 applicationInit(const OgeApplication *pApplication) {
-  u16 *pDArray = ogeDArrayAllocate(112, sizeof(u16));
-
-  OGE_WARN(ogeMemoryGetDebugInfo());
-
-  pDArray = ogeDArrayResize(pDArray, 190);
-
-  OGE_WARN(ogeMemoryGetDebugInfo());
-
-  pDArray = ogeDArrayShrink(pDArray);
-
-  OGE_WARN(ogeMemoryGetDebugInfo());
-
-  ogeDArrayDeallocate(pDArray);
-
-  OGE_WARN(ogeMemoryGetDebugInfo());
-
   return OGE_TRUE;
 }
 

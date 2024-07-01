@@ -9,6 +9,7 @@ typedef struct OgePlatformInitInfo {
 } OgePlatformInitInfo;
 
 b8    ogePlatformInit(const OgePlatformInitInfo *pInitInfo);
+
 void  ogePlatformTerminate();
 
 void  ogePlatformPumpMessages();
@@ -16,20 +17,29 @@ void  ogePlatformPumpMessages();
 b8    ogePlatformTerminateRequested();
 
 void* ogePlatformAllocate(u64 size, b8 aligned);
-void  ogePlatformDeallocate(void *block, b8 aligned);
-void  ogePlatformMemoryCopy(void *dst, const void *src, u64 size);
-void  ogePlatformMemorySet(void *dst, i32 value, u64 size);
+
+void* ogePlatformReallocate(void *pBlock, u64 size, b8 aligned);
+
+void  ogePlatformDeallocate(void *pBlock, b8 aligned);
+
+void  ogePlatformMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size);
+
+void  ogePlatformMemorySet(void *pDstBlock, i32 value, u64 size);
+
+void ogePlatformMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size);
 
 void  ogePlatformConsoleWrite(const char *pMessage, u8 color);
 
 /**
  * @brief Returns amount of seconds past since the unix epoch.
  */
-f64   ogePlatformGetTime();
+f64 ogePlatformGetTime();
 
 /**
  * @brief Sleep on current thread for the given amount of milliseconds.
  *
- * Should only be used for giving time back to the OS for unused update power.
+ * Should only be used for giving time back to the OS for unused
+ * update power in order not to use 100% of cpu.
+ *
  */
-void  ogePlatformSleep(u64 ms);
+void ogePlatformSleep(u64 ms);

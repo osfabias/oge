@@ -29,9 +29,11 @@ void ogeMemoryInit();
 void ogeMemoryTerminate();
 
 OGE_API void* ogeAllocate(u64 size, OgeMemoryTag memoryTag);
-OGE_API void  ogeDeallocate(void *block, u64 size, OgeMemoryTag memoryTag);
+OGE_API void* ogeReallocate(void *pBlock, u64 size);
+OGE_API void  ogeDeallocate(void *pBlock);
 
-OGE_API void  ogeMemoryCopy(void *dst, const void *src, u64 size);
-OGE_API void  ogeMemorySet(void *block, i32 value, u64 size);
+OGE_API void ogeMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size);
+OGE_API void ogeMemorySet(void *pBlock, i32 value, u64 size);
+OGE_API void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size);
 
 OGE_API const char* ogeMemoryGetDebugInfo();

@@ -18,7 +18,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "Linux platform not implemented.")
   # Add source files here instead of "message()" call
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MACOS
-  target_sources(oge PRIVATE ./src/platform/macos.m)
+  target_sources(oge PRIVATE ./src/platform/platform_macos.m)
 
   find_library(COCOA_LIBRARY Cocoa)
   find_library(QUARTZ_LIBRARY QuartzCore)

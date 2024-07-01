@@ -1,87 +1,107 @@
-#include "oge/core/logging.h"
+#include <string.h>
+
 #include "oge/defines.h"
 #include "oge/core/memory.h"
+#include "oge/core/logging.h"
 #include "oge/containers/darray.h"
 
 typedef struct OgeDArrayHeader {
-  u32 capacity; // max 4'294'967'296
-  u32 length;   // max 4'294'967'296
-  u16 stride;   // max 8Kib (65'356 bits)
+  u64 capacity;
+  u64 length;
+  u64 stride;
 } OgeDArrayHeader;
 
-#define DARRAY_SIZE(pDArrayHeader) \
-  sizeof(OgeDArrayHeader) + (*pDArrayHeader).capacity * (*pDArrayHeader).stride
+#define DARRAY_RESIZE_FACTOR 1.25f
 
-void* ogeDArrayAllocate(u32 length, u16 stride) {
-  u64 arraySize = length * stride;
-  u64 fullSize  = sizeof(OgeDArrayHeader) + arraySize;
-  
-  OgeDArrayHeader *pDArrayHeader = ogeAllocate(fullSize, OGE_MEMORY_TAG_DARRAY);
-  ogeMemorySet(pDArrayHeader, 0, fullSize);
+#define DARRAY_SIZE(length, stride) \
+  sizeof(OgeDArrayHeader) + (length) * (stride)
 
-  (*pDArrayHeader).capacity = length;
-  (*pDArrayHeader).length   = 0;
-  (*pDArrayHeader).stride   = stride;
+// header to darray data start conversion
+#define DARRAY_HTOS(ptr) \
+  ((void*)((ptr) + 1))
 
-  return (void*)(pDArrayHeader + 1);
+// darray data start to header conversion
+#define DARRAY_STOH(ptr) \
+  (((OgeDArrayHeader*)(ptr)) - 1)
+
+void* ogeDArrayAllocate(u64 length, u64 stride) {
+  OgeDArrayHeader *pDArrayHeader =
+    ogeAllocate(DARRAY_SIZE(length, stride), OGE_MEMORY_TAG_DARRAY);
+
+  pDArrayHeader->capacity = length;
+  pDArrayHeader->length   = 0;
+  pDArrayHeader->stride   = stride;
+
+  return DARRAY_HTOS(pDArrayHeader);
 }
 
 void ogeDArrayDeallocate(void *pDArray) {
-  OgeDArrayHeader *pDArrayHeader = (OgeDArrayHeader*)pDArray - 1;
-  ogeDeallocate(pDArrayHeader, DARRAY_SIZE(pDArrayHeader), OGE_MEMORY_TAG_DARRAY);
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+  ogeDeallocate(pDArrayHeader);
 }
 
-u32 ogeDArrayLength(void *pDArray) {
-  return ((OgeDArrayHeader*)pDArray)->length;
-}
+void* ogeDArrayResize(void *pDArray, u64 length) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
 
-u16 ogeDArrayStride(void *pDArray) {
-  return ((OgeDArrayHeader*)pDArray)->length;
-}
+  pDArrayHeader = ogeReallocate(pDArrayHeader,
+                                DARRAY_SIZE(length, pDArrayHeader->stride));
 
-void* ogeDArrayResize(void *pDArray, u32 length) {
-  #ifdef OGE_DEBUG
-  if (length == 0) {
-    OGE_WARN("ogeDArrayResize called with 0 length.");
-  }
-  #endif
+  pDArrayHeader->capacity = length;
+  pDArrayHeader->length = OGE_MIN(pDArrayHeader->length, length);
 
-  OgeDArrayHeader *pDArrayHeader = (OgeDArrayHeader*)pDArray - 1;
-  u64 oldSize        = DARRAY_SIZE(pDArrayHeader);
-  u64 newSize        = sizeof(OgeDArrayHeader) + length * (*pDArrayHeader).stride;
-
-  OgeDArrayHeader *pNewDArrayHeader = ogeAllocate(newSize, OGE_MEMORY_TAG_DARRAY);
-
-  if (length < (*pDArrayHeader).length) {
-    ogeMemoryCopy(pNewDArrayHeader, pDArrayHeader, newSize);
-    (*pNewDArrayHeader).length = length;
-  }
-  else {
-    ogeMemorySet(pNewDArrayHeader, 0, newSize);
-    ogeMemoryCopy(pNewDArrayHeader, pDArrayHeader, oldSize);
-  }
-
-  // Length & stride are copied automaticly
-  (*pNewDArrayHeader).capacity = length;
-
-  ogeDeallocate(pDArrayHeader, oldSize, OGE_MEMORY_TAG_DARRAY);
-
-  return (void*)(pNewDArrayHeader + 1);
+  return DARRAY_HTOS(pDArrayHeader);
 }
 
 void* ogeDArrayShrink(void *pDArray) {
-  OgeDArrayHeader *pDArrayHeader = (OgeDArrayHeader*)pDArray - 1;
-  u64 oldSize        = DARRAY_SIZE(pDArrayHeader);
-  u64 newSize        = sizeof(OgeDArrayHeader) + (*pDArrayHeader).length * (*pDArrayHeader).stride;
+  return ogeDArrayResize(pDArray, OGE_MAX(DARRAY_STOH(pDArray)->length, 1));
+}
 
-  OgeDArrayHeader *pNewDArrayHeader = ogeAllocate(newSize, OGE_MEMORY_TAG_DARRAY);
-  ogeMemoryCopy(pNewDArrayHeader, pDArrayHeader, newSize);
+void* ogeDArrayAppend(void *pDArray, const void *pValue) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
 
-  // Stride copied automaticly
-  (*pNewDArrayHeader).capacity = (*pDArrayHeader).length;
-  (*pNewDArrayHeader).length   = 0;
+  if (pDArrayHeader->length == pDArrayHeader->capacity) {
+    pDArray = ogeDArrayResize(pDArray, pDArrayHeader->length * DARRAY_RESIZE_FACTOR);
+    pDArrayHeader = DARRAY_STOH(pDArray);
+  }
 
-  ogeDeallocate(pDArrayHeader, oldSize, OGE_MEMORY_TAG_DARRAY);
+  ogeMemoryCopy(((u8*)pDArray) + pDArrayHeader->length * pDArrayHeader->stride,
+                pValue, pDArrayHeader->stride);
+  pDArrayHeader->length += 1;
 
-  return (void*)(pNewDArrayHeader + 1);
+  return pDArray;
+}
+
+void* ogeDArrayInsert(void *pDArray, u64 index, const void *pValue) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+
+  if (pDArrayHeader->length == pDArrayHeader->capacity) {
+    pDArray = ogeDArrayResize(pDArray, pDArrayHeader->length * DARRAY_RESIZE_FACTOR);
+    pDArrayHeader = DARRAY_STOH(pDArray);
+  }
+
+  ogeMemoryMove(((u8*)pDArray) + pDArrayHeader->stride * (index + 1),
+                ((u8*)pDArray) + pDArrayHeader->stride * index,
+                pDArrayHeader->length * pDArrayHeader->stride);
+  ogeMemoryCopy(pDArray, pValue, pDArrayHeader->stride);
+  pDArrayHeader->length += 1;
+
+  return pDArray;
+}
+
+void ogeDArrayPop(void *pDArray, void *pOut) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+  pDArrayHeader->length -= 1;
+  ogeMemoryCopy(pOut, ((u8*)pDArray + pDArrayHeader->length * pDArrayHeader->stride),
+                pDArrayHeader->stride);
+}
+
+void ogeDArrayPopAt(void *pDArray, u64 index, void *pOut) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+
+  ogeMemoryCopy(pOut, ((u8*)pDArray) + pDArrayHeader->stride * index,
+                pDArrayHeader->stride);
+  ogeMemoryMove(((u8*)pDArray) + pDArrayHeader->stride * index,
+                ((u8*)pDArray) + pDArrayHeader->stride * (index + 1),
+                pDArrayHeader->length * pDArrayHeader->stride);
+  pDArrayHeader->length -= 1;
 }

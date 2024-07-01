@@ -1,24 +1,26 @@
+#include <arm/param.h>
+#include <crt_externs.h>
+#include <mach/mach_time.h>
+
+#include <errno.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <copyfile.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#import <Cocoa/Cocoa.h>
+#import <QuartzCore/QuartzCore.h>
+#import <QuartzCore/CAMetalLayer.h>
+#import <Foundation/Foundation.h>
+
 #include "oge/defines.h"
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
 
-#include <mach/mach_time.h>
-#include <crt_externs.h>
-
-#include <copyfile.h>
-#include <errno.h>
-#include <sys/stat.h>
-
-#import <Foundation/Foundation.h>
-#import <Cocoa/Cocoa.h>
-#import <QuartzCore/QuartzCore.h>
-#import <QuartzCore/CAMetalLayer.h>
-
-#include <pthread.h>
-
-@class ApplicationDelegate;
-@class WindowDelegate;
 @class ContentView;
+@class WindowDelegate;
+@class ApplicationDelegate;
 
 typedef struct OgeMacOSHandleInfo {
     CAMetalLayer *pLayer;
@@ -30,7 +32,7 @@ struct {
   WindowDelegate      *pWindowDelegate;
   NSWindow            *pWindow;
   ContentView         *pView;
-  OgeMacOSHandleInfo handle;
+  OgeMacOSHandleInfo  handle;
   b8                  terminateRequsted;
   f32                 deviceRatio;
 } s_ogePlatformState;
@@ -105,7 +107,7 @@ struct {
 
   - (BOOL)hasMarkedText {return false;}
 
-  - (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {return nil;}
+  - (nullable NSMutableAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {return nil;}
 
   - (NSArray<NSAttributedStringKey> *)validAttributesForMarkedText {return [NSArray array];}
 
@@ -148,7 +150,7 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
 
   OGE_TRACE("Initializing Cocoa platform");
 
-  // TODO: There should be an @autoreleasepool block,
+  // TODO: There should be an @autoreleasepool pBlock,
   // but it causes segfault if future on ogePlatformTerminate
 
   // @autoreleasepool {
@@ -317,17 +319,26 @@ void* ogePlatformAllocate(u64 size, b8 aligned) {
   return malloc(size);
 }
 
-void ogePlatformDeallocate(void *block, b8 aligned) {
-  free(block);
+void* ogePlatformReallocate(void *pBlock, u64 size, b8 aligned) {
+  return realloc(pBlock, size);
 }
 
-void ogePlatformMemoryCopy(void *dst, const void *src, u64 size) {
-  memcpy(dst, src, size);
+void ogePlatformDeallocate(void *pBlock, b8 aligned) {
+  free(pBlock);
 }
 
-void ogePlatformMemorySet(void *dst, i32 value, u64 size) {
-  memset(dst, value, size);
+void ogePlatformMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size) {
+  memcpy(pDstBlock, pSrcBlock, size);
 }
+
+void ogePlatformMemorySet(void *pDstBlock, i32 value, u64 size) {
+  memset(pDstBlock, value, size);
+}
+
+void ogePlatformMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size) {
+  memmove(pDstBlock, pSrcBlock, size);
+}
+
 
 void ogePlatformConsoleWrite(const char *pMessage, u8 color) {
   // trace, info, warn, error, fatal

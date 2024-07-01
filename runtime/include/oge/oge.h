@@ -5,4 +5,6 @@
 #include "oge/core/assertion.h"
 #include "oge/core/application.h"
 
+#include "oge/containers/darray.h"
+
 #include "oge/entry.h"
