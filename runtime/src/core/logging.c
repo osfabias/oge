@@ -5,10 +5,16 @@
 #include "oge/core/platform.h"
 
 struct {
+  b8 initialized;
   OgeLogLevel logLevel;
-} ogeLoggingState;
+} ogeLoggingState = { .initialized = OGE_FALSE };
 
 b8 ogeLoggingInit(const OgeLoggingInitInfo *pInitInfo) {
+  if (ogeLoggingState.initialized) {
+    OGE_WARN("Trying to initialize logging system while it's already initialized.");
+    return OGE_TRUE;
+  }
+
   ogeLoggingState.logLevel = pInitInfo->logLevel;
 
   // TODO: create log file
@@ -17,6 +23,14 @@ b8 ogeLoggingInit(const OgeLoggingInitInfo *pInitInfo) {
 
 void ogeLoggingTerminate() {
   // TODO: write all queued entries and close file
+}
+
+void ogeLoggingSetLevel(OgeLogLevel level) {
+  ogeLoggingState.logLevel = level;
+}
+
+OgeLogLevel ogeLoggingGetLevel() {
+  return ogeLoggingState.logLevel;
 }
 
 void ogeLog(OgeLogLevel level, const char *pMessage, ...) {

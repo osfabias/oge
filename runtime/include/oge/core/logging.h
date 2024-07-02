@@ -17,7 +17,9 @@ typedef struct OgeLoggingInitInfo {
 
 b8   ogeLoggingInit(const OgeLoggingInitInfo *pInitInfo);
 void ogeLoggingTerminate();
+
 void ogeLoggingSetLevel(OgeLogLevel level);
+OgeLogLevel ogeLoggingGetLevel();
 
 OGE_API void ogeLog(OgeLogLevel level, const char *pMessage, ...);
 

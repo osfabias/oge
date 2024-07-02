@@ -4,6 +4,7 @@
 #include "oge/core/logging.h"
 #include "oge/core/assertion.h"
 #include "oge/core/application.h"
+#include "oge/core/memory.h"
 
 /**
  * @brief Fills an application struct.
@@ -19,6 +20,8 @@ extern b8 ogeApplicationCreate(OgeApplication *pApplication);
 int main() {
   OgeApplication ogeApplication;
 
+  ogeMemoryInit();
+
   if (!ogeApplicationCreate(&ogeApplication)) {
     OGE_FATAL("Failed to create OGE application");
     return 1;
@@ -30,6 +33,9 @@ int main() {
   }
 
   ogeRun();
+
   ogeTerminate();
+
+  ogeMemoryTerminate();
   return 0;
 }

@@ -27,7 +27,7 @@ OGE_INLINE u64 ogeDArrayLength(void *pDArray) {
  * @brief Return a stride (size of an element) of a dynamic array.
  * @param pDArray A pointer to a dynamic array.
  */
-OGE_API u64 ogeDArrayStride(void *pDArray) {
+OGE_INLINE u64 ogeDArrayStride(void *pDArray) {
   return *((u64*)pDArray - 1); // see darray.c for header structure
 }
 
@@ -72,3 +72,14 @@ OGE_API void ogeDArrayPop(void *pDArray, void *pOut);
  */
 OGE_API void ogeDArrayPopAt(void *pDArray, u64 index, void *pOut);
 
+/**
+ * @brief Deletes an element at given index from a dynamic array.
+ */
+OGE_API void ogeDArrayRemove(void *pDArray, u64 index);
+
+/**
+ * @brief Returns an index of first appearance of pValue.
+ * @param pDArray A pointer to a dynamic array.
+ * @param pValue A pointer to a value to find.
+ */
+OGE_API u64 ogeDArrayFind(void *pDArray, const void *pValue);

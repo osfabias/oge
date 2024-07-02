@@ -23,7 +23,6 @@ typedef struct OgeDArrayHeader {
   (((OgeDArrayHeader*)(ptr)) - 1)
 
 void* ogeDArrayAllocate(u64 length, u64 stride) {
-
   OgeDArrayHeader *pDArrayHeader =
     ogeAllocate(DARRAY_SIZE(length, stride), OGE_MEMORY_TAG_DARRAY);
 
@@ -31,24 +30,27 @@ void* ogeDArrayAllocate(u64 length, u64 stride) {
   pDArrayHeader->length   = 0;
   pDArrayHeader->stride   = stride;
 
-  OGE_TRACE("DArray allocated (%p):\ncapacity:%lu\nstride:%lu",
-            pDArrayHeader, length, stride);
+  OGE_TRACE("DArray allocated (%p): %lu x %luB", pDArrayHeader, length, stride);
 
   return DARRAY_HTOS(pDArrayHeader);
 }
 
 void ogeDArrayDeallocate(void *pDArray) {
-  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
-  ogeDeallocate(pDArrayHeader);
-
-  OGE_TRACE("DArray deallocated (%p)", pDArrayHeader);
+  ogeDeallocate(DARRAY_STOH(pDArray));
+  OGE_TRACE("DArray deallocated (%p)", DARRAY_STOH(pDArray));
 }
 
 void* ogeDArrayResize(void *pDArray, u64 length) {
   OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
 
-  pDArrayHeader = ogeReallocate(pDArrayHeader,
-                                DARRAY_SIZE(length, pDArrayHeader->stride));
+  #ifdef OGE_DEBUG
+  if (length == 0) {
+    OGE_WARN("DArray %p length is set to 0.", pDArrayHeader);
+  }
+  #endif
+
+  const u64 newSize = DARRAY_SIZE(length, pDArrayHeader->stride);
+  pDArrayHeader = ogeReallocate(pDArrayHeader, newSize);
 
   pDArrayHeader->capacity = length;
   pDArrayHeader->length = OGE_MIN(pDArrayHeader->length, length);
@@ -59,19 +61,21 @@ void* ogeDArrayResize(void *pDArray, u64 length) {
 }
 
 void* ogeDArrayShrink(void *pDArray) {
-  return ogeDArrayResize(pDArray, OGE_MAX(DARRAY_STOH(pDArray)->length, 1));
+  return ogeDArrayResize(pDArray, DARRAY_STOH(pDArray)->length);
 }
 
 void* ogeDArrayAppend(void *pDArray, const void *pValue) {
   OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+  const u64 length = pDArrayHeader->length;
+  const u64 stride = pDArrayHeader->stride;
 
-  if (pDArrayHeader->length == pDArrayHeader->capacity) {
-    pDArray = ogeDArrayResize(pDArray, pDArrayHeader->length * DARRAY_RESIZE_FACTOR);
+  if (length == pDArrayHeader->capacity) {
+    const u64 newSize = OGE_MAX(1, length) * DARRAY_RESIZE_FACTOR;
+    pDArray = ogeDArrayResize(pDArray, newSize);
     pDArrayHeader = DARRAY_STOH(pDArray);
   }
 
-  ogeMemoryCopy(((u8*)pDArray) + pDArrayHeader->length * pDArrayHeader->stride,
-                pValue, pDArrayHeader->stride);
+  ogeMemoryCopy(((u8*)pDArray) + length * stride, pValue, stride);
   pDArrayHeader->length += 1;
 
   return pDArray;
@@ -79,9 +83,18 @@ void* ogeDArrayAppend(void *pDArray, const void *pValue) {
 
 void* ogeDArrayInsert(void *pDArray, u64 index, const void *pValue) {
   OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+  const u64 length = pDArrayHeader->length;
 
-  if (pDArrayHeader->length == pDArrayHeader->capacity) {
-    pDArray = ogeDArrayResize(pDArray, pDArrayHeader->length * DARRAY_RESIZE_FACTOR);
+  #if OGE_DEBUG
+  if (index >= length) {
+    OGE_ERROR("Inserting an element at the index %d that is outside the bounds of %p.", 
+              index, pDArrayHeader);
+    return pDArray;
+  }
+  #endif
+
+  if (length == pDArrayHeader->capacity) {
+    pDArray = ogeDArrayResize(pDArray, length * DARRAY_RESIZE_FACTOR);
     pDArrayHeader = DARRAY_STOH(pDArray);
   }
 
@@ -104,10 +117,46 @@ void ogeDArrayPop(void *pDArray, void *pOut) {
 void ogeDArrayPopAt(void *pDArray, u64 index, void *pOut) {
   OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
 
+  #if OGE_DEBUG
+  if (index >= pDArrayHeader->length) {
+    OGE_ERROR("Popping an element at the index %d that is outside the bounds of %p.", index, pDArray);
+    return;
+  }
+  #endif
+
   ogeMemoryCopy(pOut, ((u8*)pDArray) + pDArrayHeader->stride * index,
                 pDArrayHeader->stride);
   ogeMemoryMove(((u8*)pDArray) + pDArrayHeader->stride * index,
                 ((u8*)pDArray) + pDArrayHeader->stride * (index + 1),
                 pDArrayHeader->length * pDArrayHeader->stride);
   pDArrayHeader->length -= 1;
+}
+
+void ogeDArrayRemove(void *pDArray, u64 index) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+
+  #if OGE_DEBUG
+  if (index >= pDArrayHeader->length) {
+    OGE_ERROR("Removing an element at the index %d that is outside the bounds of %p.", index, pDArray);
+    return;
+  }
+  #endif
+
+  ogeMemoryMove(((u8*)pDArray) + pDArrayHeader->stride * index,
+                ((u8*)pDArray) + pDArrayHeader->stride * (index + 1),
+                pDArrayHeader->length * pDArrayHeader->stride);
+  pDArrayHeader->length -= 1;
+}
+
+u64 ogeDArrayFind(void *pDArray, const void *pValue) {
+  const OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+  const u64 stride = pDArrayHeader->stride;
+
+  for (u64 i = 0; i < pDArrayHeader->length; ++i) {
+    if (ogeMemoryCompare((u8*)pDArray + stride * i, pValue ,stride) == 0) {
+      return i;
+    }
+  }
+
+  return -1;
 }

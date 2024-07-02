@@ -4,6 +4,7 @@ project(oge VERSION 0.0.1)
 add_library(oge SHARED
             ./src/core/engine.c
             ./src/core/memory.c
+            ./src/core/events.c
             ./src/core/logging.c
             ./src/containers/darray.c
             )

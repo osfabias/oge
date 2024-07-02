@@ -8,7 +8,7 @@
 
 #ifdef OGE_DEBUG
 
-#define _MAX_DEBUG_INFO_LENGTH 8192
+#define MAX_DEBUG_INFO_LENGTH 8192
 
 #define MEMORY_HTOS(ptr) \
   ((void*)((ptr) + 1))
@@ -20,11 +20,6 @@ typedef struct OgeMemoryDebugHeader {
   u64 size;
   u16 tag;
 } OgeMemoryDebugHeader;
-
-struct {
-  u64 totalUsage; 
-  u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
-} ogeMemoryDebugStats;
 
 char* pMemoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
   "UNKNOWN    ",
@@ -46,17 +41,39 @@ char* pMemoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
   "SCENE      ",
 };
 
-char pMemoryDebugStr[_MAX_DEBUG_INFO_LENGTH];
+char pMemoryDebugStr[MAX_DEBUG_INFO_LENGTH];
 
 #endif
 
-void ogeMemoryInit() {
+struct {
+  b8 initialized;
   #ifdef OGE_DEBUG
-    ogePlatformMemorySet(&ogeMemoryDebugStats, 0, sizeof(ogeMemoryDebugStats));
+  u64 totalUsage; 
+  u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
   #endif
+} ogeMemoryState = { .initialized = OGE_FALSE };
+
+
+void ogeMemoryInit() {
+  if (ogeMemoryState.initialized) { 
+    OGE_WARN("Trying to initialize memory system while it's already initialized.");
+    return;
+  }
+
+  ogePlatformMemorySet(&ogeMemoryState, 0, sizeof(ogeMemoryState));
+  ogeMemoryState.initialized = OGE_TRUE;
+
+  OGE_INFO("Memory system initialized.");
 }
 
-void ogeMemoryTerminate() { }
+void ogeMemoryTerminate() {
+  if (!ogeMemoryState.initialized) {
+    OGE_WARN("Trying to termiate memory system while it's already terminated.");
+    return;
+  }
+
+  OGE_INFO("Memory system terminated.");
+}
 
 void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   #ifdef OGE_DEBUG
@@ -73,8 +90,8 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   pBlockHeader->size = size;
   pBlockHeader->tag  = memoryTag;
 
-  ogeMemoryDebugStats.totalUsage += size;
-  ogeMemoryDebugStats.perTagUsage[memoryTag] += size;
+  ogeMemoryState.totalUsage += size;
+  ogeMemoryState.perTagUsage[memoryTag] += size;
 
   return MEMORY_HTOS(pBlockHeader);
   #else
@@ -86,8 +103,8 @@ void* ogeReallocate(void *pBlock, u64 size) {
   #ifdef OGE_DEBUG
   OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
-  ogeMemoryDebugStats.totalUsage -= pBlockHeader->size - size;
-  ogeMemoryDebugStats.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size - size;
+  ogeMemoryState.totalUsage -= pBlockHeader->size - size;
+  ogeMemoryState.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size - size;
 
   pBlockHeader = ogePlatformReallocate(pBlockHeader,
                                        sizeof(OgeMemoryDebugHeader) + size, OGE_FALSE);
@@ -103,8 +120,8 @@ void ogeDeallocate(void *pBlock) {
   #ifdef OGE_DEBUG
   OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
-  ogeMemoryDebugStats.totalUsage -= pBlockHeader->size;
-  ogeMemoryDebugStats.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
+  ogeMemoryState.totalUsage -= pBlockHeader->size;
+  ogeMemoryState.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
 
   ogePlatformDeallocate(pBlockHeader, OGE_FALSE);
   #else
@@ -124,6 +141,10 @@ void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size) {
   ogePlatformMemoryMove(pDstBlock, pSrcBlock, size);
 }
 
+i32 ogeMemoryCompare(const void *pBlock1, const void *pBlock2, u64 size) {
+  return ogePlatformMemoryCompare(pBlock1, pBlock2, size);
+}
+
 const char* ogeMemoryGetDebugInfo() {
   #ifdef OGE_DEBUG
   const u32 gib = 1024 * 1024 * 1024;
@@ -131,14 +152,14 @@ const char* ogeMemoryGetDebugInfo() {
   const u32 kib = 1024;
 
   ogeMemorySet(pMemoryDebugStr, 0, sizeof(pMemoryDebugStr));
-  snprintf(pMemoryDebugStr, _MAX_DEBUG_INFO_LENGTH, "Memory usage:\n");
+  snprintf(pMemoryDebugStr, MAX_DEBUG_INFO_LENGTH, "Memory usage:\n");
   u16 offset = strlen(pMemoryDebugStr);
 
   for (int i = 0; i < OGE_MEMORY_TAG_MAX_ENUM; ++i) {
-    OGE_ASSERT(offset < _MAX_DEBUG_INFO_LENGTH, "Memory debug info string is exceed the limit."); 
+    OGE_ASSERT(offset < MAX_DEBUG_INFO_LENGTH, "Memory debug info string is exceed the limit."); 
 
     char unit[4] = "Xib";
-    f64 amount = ogeMemoryDebugStats.perTagUsage[i];
+    f64 amount = ogeMemoryState.perTagUsage[i];
     if (amount >= gib) {
       unit[0] = 'G';
       amount /= gib;
@@ -156,7 +177,7 @@ const char* ogeMemoryGetDebugInfo() {
       unit[1] = '\0';
     }
 
-    u16 length = snprintf(pMemoryDebugStr + offset, _MAX_DEBUG_INFO_LENGTH,
+    u16 length = snprintf(pMemoryDebugStr + offset, MAX_DEBUG_INFO_LENGTH,
                           "%s : %.2f %s\n", pMemoryTagNames[i], amount, unit);
     offset += length;
   }

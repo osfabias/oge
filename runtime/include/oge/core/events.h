@@ -25,11 +25,11 @@ typedef struct OgeEventData {
 
 typedef void(OgeEventCallback)(void *sender, OgeEventData data);
 
-
-b8   ogeEventsInit();
+void ogeEventsInit();
 void ogeEventsTerminate();
 
-OGE_API void ogeEventsSetCallback(u16 code, OgeEventCallback pCallback);
+OGE_API void ogeEventsSubscribe(u16 code, OgeEventCallback pCallback);
+OGE_API void ogeEventsUnsubscribe(u16 code, OgeEventCallback pCallback);
 OGE_API void ogeEventsInvoke(u16 code, void *sender, OgeEventData data);
 
 // OGE reserved event codes (up to 255)

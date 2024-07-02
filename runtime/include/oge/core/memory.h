@@ -35,5 +35,6 @@ OGE_API void  ogeDeallocate(void *pBlock);
 OGE_API void ogeMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size);
 OGE_API void ogeMemorySet(void *pBlock, i32 value, u64 size);
 OGE_API void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size);
+OGE_API i32  ogeMemoryCompare(const void *pBlock1, const void *pBlock2, u64 size);
 
 OGE_API const char* ogeMemoryGetDebugInfo();
