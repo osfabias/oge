@@ -1,5 +1,6 @@
 #pragma once
 
+#include "oge/core/events.h"
 #include "oge/core/memory.h"
 #include "oge/core/logging.h"
 #include "oge/core/assertion.h"

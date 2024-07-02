@@ -23,7 +23,7 @@ typedef struct OgeEventData {
   };
 } OgeEventData;
 
-typedef void(OgeEventCallback)(void *sender, OgeEventData data);
+typedef b8(*OgeEventCallback)(void *sender, OgeEventData data);
 
 void ogeEventsInit();
 void ogeEventsTerminate();

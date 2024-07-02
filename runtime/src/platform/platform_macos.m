@@ -17,6 +17,7 @@
 #include "oge/defines.h"
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
+#include "oge/core/assertion.h"
 
 @class ContentView;
 @class WindowDelegate;
@@ -35,7 +36,7 @@ struct {
   OgeMacOSHandleInfo  handle;
   b8                  terminateRequsted;
   f32                 deviceRatio;
-} s_ogePlatformState;
+} ogePlatformState;
 
 @interface WindowDelegate : NSObject <NSWindowDelegate> {}
 
@@ -45,7 +46,7 @@ struct {
 @implementation WindowDelegate
 
 - (BOOL)windowShouldClose:(id)sender {
-  s_ogePlatformState.terminateRequsted = OGE_TRUE;
+  ogePlatformState.terminateRequsted = OGE_TRUE;
   OGE_INFO("Platform terminate requested.");
   return YES;
 }
@@ -90,7 +91,7 @@ struct {
       return YES;
   }
 
-  // If these methods not implemented - compiler generates warning and
+  // If these methods not implemented - compiler generates warnings and
   // program crashes on platform initialization
   - (void)insertText:(id)string replacementRange:(NSRange)replacementRange {}
 
@@ -143,7 +144,7 @@ struct {
 @end // ApplicationDelegate 
 
 b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
-  if (s_ogePlatformState.initialized) {
+  if (ogePlatformState.initialized) {
     OGE_WARN("Trying to initialize Cocoa platform while it's already initialized.");
     return OGE_TRUE;
   }
@@ -154,56 +155,56 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
   // causes segfault in future on ogePlatformTerminate call
 
   // Zero platform state struct
-  memset(&s_ogePlatformState, 0, sizeof(s_ogePlatformState));
+  memset(&ogePlatformState, 0, sizeof(ogePlatformState));
 
   [NSApplication sharedApplication];
 
   // App delegate creation
-  s_ogePlatformState.pAppDelegate = [[ApplicationDelegate alloc] init];
-  if (!s_ogePlatformState.pAppDelegate) {
+  ogePlatformState.pAppDelegate = [[ApplicationDelegate alloc] init];
+  if (!ogePlatformState.pAppDelegate) {
     OGE_ERROR("Failed to initialize NS application delegate.");
     return OGE_FALSE;
   }
   OGE_TRACE("NS application delegate successfully initialized.");
-  [NSApp setDelegate:s_ogePlatformState.pAppDelegate];
+  [NSApp setDelegate:ogePlatformState.pAppDelegate];
 
   // Window delegate creation
-  s_ogePlatformState.pWindowDelegate = [[WindowDelegate alloc] init];
-  if (!s_ogePlatformState.pWindowDelegate) {
+  ogePlatformState.pWindowDelegate = [[WindowDelegate alloc] init];
+  if (!ogePlatformState.pWindowDelegate) {
     OGE_ERROR("Failed to initialize NS window delegate.");
     return OGE_FALSE;
   }
   OGE_TRACE("NS window delegate successfully initialized.");
 
   // Window creation
-  s_ogePlatformState.pWindow = [[NSWindow alloc]
+  ogePlatformState.pWindow = [[NSWindow alloc]
       initWithContentRect:NSMakeRect(0, 0, pInitInfo->width, pInitInfo->height)
       styleMask:NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskResizable
       backing:NSBackingStoreBuffered
       defer:NO];
-  if (!s_ogePlatformState.pWindow) {
+  if (!ogePlatformState.pWindow) {
     OGE_ERROR("Failed to allocate NS window.");
     return OGE_FALSE;
   }
   OGE_TRACE("NS window successfully allocated.");
 
   // View creation
-  s_ogePlatformState.pView = [[ContentView alloc] initWithWindow:s_ogePlatformState.pWindow];
-  [s_ogePlatformState.pView setWantsLayer:YES];
+  ogePlatformState.pView = [[ContentView alloc] initWithWindow:ogePlatformState.pWindow];
+  [ogePlatformState.pView setWantsLayer:YES];
   OGE_TRACE("NS content view successfully allocated.");
 
   // Layer creation
-  s_ogePlatformState.handle.pLayer = [CAMetalLayer layer];
+  ogePlatformState.handle.pLayer = [CAMetalLayer layer];
   OGE_TRACE("CAMetal layer successfully created.");
 
   // Setting window properties
-  [s_ogePlatformState.pWindow setLevel:NSNormalWindowLevel];
-  [s_ogePlatformState.pWindow setContentView:s_ogePlatformState.pView];
-  [s_ogePlatformState.pWindow makeFirstResponder:s_ogePlatformState.pView];
-  [s_ogePlatformState.pWindow setTitle:@(pInitInfo->pApplicationName)];
-  [s_ogePlatformState.pWindow setDelegate:s_ogePlatformState.pWindowDelegate];
-  [s_ogePlatformState.pWindow setAcceptsMouseMovedEvents:YES];
-  [s_ogePlatformState.pWindow setRestorable:NO];
+  [ogePlatformState.pWindow setLevel:NSNormalWindowLevel];
+  [ogePlatformState.pWindow setContentView:ogePlatformState.pView];
+  [ogePlatformState.pWindow makeFirstResponder:ogePlatformState.pView];
+  [ogePlatformState.pWindow setTitle:@(pInitInfo->pApplicationName)];
+  [ogePlatformState.pWindow setDelegate:ogePlatformState.pWindowDelegate];
+  [ogePlatformState.pWindow setAcceptsMouseMovedEvents:YES];
+  [ogePlatformState.pWindow setRestorable:NO];
   OGE_TRACE("Window properties successully set.");
 
   if (![[NSRunningApplication currentApplication] isFinishedLaunching]) {
@@ -216,34 +217,34 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
 
   // Putting window in front on launch
   [NSApp activateIgnoringOtherApps:YES];
-  [s_ogePlatformState.pWindow makeKeyAndOrderFront:nil];
+  [ogePlatformState.pWindow makeKeyAndOrderFront:nil];
 
   // Handle content scaling for various fidelity displays (i.e. Retina)
-  s_ogePlatformState.handle.pLayer.bounds = s_ogePlatformState.pView.bounds;
+  ogePlatformState.handle.pLayer.bounds = ogePlatformState.pView.bounds;
 
   // It's important to set the drawableSize to the actual backing pixels. When rendering
   // full-screen, we can skip the macOS compositor if the size matches the display size.
-  s_ogePlatformState.handle.pLayer.drawableSize = [s_ogePlatformState.pView convertSizeToBacking:s_ogePlatformState.pView.bounds.size];
+  ogePlatformState.handle.pLayer.drawableSize = [ogePlatformState.pView convertSizeToBacking:ogePlatformState.pView.bounds.size];
 
   // In its implementation of vkGetPhysicalDeviceSurfaceCapabilitiesKHR, MoltenVK takes into
   // consideration both the size (in points) of the bounds, and the contentsScale of the
   // CAMetalLayer from which the Vulkan surface was created.
   // NOTE: See also https://github.com/KhronosGroup/MoltenVK/issues/428
-  s_ogePlatformState.handle.pLayer.contentsScale = s_ogePlatformState.pView.window.backingScaleFactor;
+  ogePlatformState.handle.pLayer.contentsScale = ogePlatformState.pView.window.backingScaleFactor;
 
   // Save off the device pixel ratio.
-  s_ogePlatformState.deviceRatio = s_ogePlatformState.handle.pLayer.contentsScale;
-  [s_ogePlatformState.pView setLayer:s_ogePlatformState.handle.pLayer];
+  ogePlatformState.deviceRatio = ogePlatformState.handle.pLayer.contentsScale;
+  [ogePlatformState.pView setLayer:ogePlatformState.handle.pLayer];
 
   // This is set to NO by default, but is also important to ensure we can bypass the compositor
   // in full-screen mode
   // NOTE: See "Direct to Display" http://metalkit.org/2017/06/30/introducing-metal-2.html.
-  s_ogePlatformState.handle.pLayer.opaque = YES;
+  ogePlatformState.handle.pLayer.opaque = YES;
 
   OGE_TRACE("Additional preparations finished.");
 
   // Mark that platform is initialized successfully
-  s_ogePlatformState.initialized = OGE_TRUE;
+  ogePlatformState.initialized = OGE_TRUE;
 
   OGE_INFO("Cocoa platform initialized.");
   
@@ -251,42 +252,40 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
 }
 
 void ogePlatformTerminate() {
-  if (!s_ogePlatformState.initialized) {
+  if (!ogePlatformState.initialized) {
     OGE_WARN("Trying to terminated Cocoa platform while it's already terminated.");
     return;
   }
 
   OGE_TRACE("Terminating Cocoa platform.");
 
-  [s_ogePlatformState.pWindow orderOut:nil];
+  [ogePlatformState.pWindow orderOut:nil];
   OGE_TRACE("NS window out order nilled.");
 
-  [s_ogePlatformState.pWindow setDelegate:nil];
-  [s_ogePlatformState.pWindowDelegate release];
+  [ogePlatformState.pWindow setDelegate:nil];
+  [ogePlatformState.pWindowDelegate release];
   OGE_TRACE("NS window delegate released.");
 
-  [s_ogePlatformState.pView release];
-  s_ogePlatformState.pView = nil;
+  [ogePlatformState.pView release];
+  ogePlatformState.pView = nil;
   OGE_TRACE("NS content view released.");
 
-  [s_ogePlatformState.pWindow close];
-  s_ogePlatformState.pWindow = nil;
+  [ogePlatformState.pWindow close];
+  ogePlatformState.pWindow = nil;
   OGE_TRACE("NS window closed.");
 
   [NSApp setDelegate:nil];
-  [s_ogePlatformState.pAppDelegate release];
-  s_ogePlatformState.pAppDelegate = nil;
+  [ogePlatformState.pAppDelegate release];
+  ogePlatformState.pAppDelegate = nil;
   OGE_TRACE("NS application delegate released.");
 
-  s_ogePlatformState.initialized = OGE_FALSE;
+  ogePlatformState.initialized = OGE_FALSE;
 
   OGE_INFO("Cocoa platform terminated.");
 }
 
 void ogePlatformPumpMessages() {
-  if (!s_ogePlatformState.initialized) {
-    return;
-  }
+  OGE_ASSERT(ogePlatformState.initialized, "Trying to pump platform messages while platfrom isn't initialized");
 
   @autoreleasepool {
     NSEvent* event;
@@ -308,7 +307,7 @@ void ogePlatformPumpMessages() {
 }
 
 b8 ogePlatformTerminateRequested() {
-  return s_ogePlatformState.terminateRequsted;
+  return ogePlatformState.terminateRequsted;
 }
 
 void* ogePlatformAllocate(u64 size, b8 aligned) {
