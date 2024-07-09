@@ -1,4 +1,3 @@
-#include "oge/core/events.h"
 #include "oge/oge.h"
 
 // OGE configuration

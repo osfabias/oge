@@ -1,3 +1,4 @@
+#include "oge/core/assertion.h"
 #include "oge/defines.h"
 #include "oge/core/memory.h"
 #include "oge/core/events.h"
@@ -9,16 +10,16 @@
 struct {
   b8 initialized;
   OgeEventCallback* pDArrayCallbacks[MAX_EVENT_CODES];
-} ogeEventsState = { .initialized = OGE_FALSE };
+} s_eventsState = { .initialized = OGE_FALSE };
 
 void ogeEventsInit() {
-  if (ogeEventsState.initialized) {
+  if (s_eventsState.initialized) {
     OGE_WARN("Trying to initialize events system while it's already initialized.");
     return;
   }
 
-  ogeMemorySet(ogeEventsState.pDArrayCallbacks, 0, sizeof(ogeEventsState));
-  ogeEventsState.initialized = OGE_TRUE;
+  ogeMemorySet(s_eventsState.pDArrayCallbacks, 0, sizeof(s_eventsState));
+  s_eventsState.initialized = OGE_TRUE;
 
   #ifdef OGE_DEBUG
   // Allocating so much darrays emits a lot of unwanted trace log
@@ -31,7 +32,7 @@ void ogeEventsInit() {
 
   // Allocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
-    ogeEventsState.pDArrayCallbacks[i] =
+    s_eventsState.pDArrayCallbacks[i] =
       ogeDArrayAllocate(2, sizeof(OgeEventCallback));
   }
 
@@ -44,12 +45,12 @@ void ogeEventsInit() {
 }
 
 void ogeEventsTerminate() {
-  if (!ogeEventsState.initialized) {
+  if (!s_eventsState.initialized) {
     OGE_WARN("Trying to initialie events system while it'a already initialized.");
     return;
   }
 
-  ogeEventsState.initialized = OGE_FALSE;
+  s_eventsState.initialized = OGE_FALSE;
 
   #ifdef OGE_DEBUG
   // Deallocating darrays emits a lot of unwanted trace log
@@ -62,7 +63,7 @@ void ogeEventsTerminate() {
 
   // Deallocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
-    ogeDArrayDeallocate(ogeEventsState.pDArrayCallbacks[i]);
+    ogeDArrayDeallocate(s_eventsState.pDArrayCallbacks[i]);
   }
 
   #ifdef OGE_DEBUG
@@ -74,22 +75,24 @@ void ogeEventsTerminate() {
 }
 
 void ogeEventsSubscribe(u16 code, OgeEventCallback callback) {
-  ogeDArrayAppend(ogeEventsState.pDArrayCallbacks[code], &callback);
+  OGE_ASSERT(s_eventsState.initialized, "Trying to subscribe a callback to an event while events system is offline.");
+  ogeDArrayAppend(s_eventsState.pDArrayCallbacks[code], &callback);
   OGE_TRACE("Subscribed %p callback for %d event.", &callback, code);
 }
 
 void ogeEventsUnsubscribe(u16 code, OgeEventCallback callback) {
-  u64 index = ogeDArrayFind(ogeEventsState.pDArrayCallbacks[code], &callback);
+  OGE_ASSERT(s_eventsState.initialized, "Trying to unsubscribe a callback from an event while events system is offline.");
+  u64 index = ogeDArrayFind(s_eventsState.pDArrayCallbacks[code], &callback);
 
   if (index == -1) { return; }
-  ogeDArrayRemove(ogeEventsState.pDArrayCallbacks[code], index);
+  ogeDArrayRemove(s_eventsState.pDArrayCallbacks[code], index);
   OGE_TRACE("Unsubscribed %p callback for %d event.", &callback, code);
 }
 
 void ogeEventsInvoke(u16 code, void *sender, OgeEventData data) {
-  const u64 callbacksCount = ogeDArrayLength(ogeEventsState.pDArrayCallbacks[code]);
+  const u64 callbacksCount = ogeDArrayLength(s_eventsState.pDArrayCallbacks[code]);
   for (u64 i = 0; i < callbacksCount; ++i) {
-    const OgeEventCallback callback = ogeEventsState.pDArrayCallbacks[code][i];
+    const OgeEventCallback callback = s_eventsState.pDArrayCallbacks[code][i];
 
     // If event was processed - stop
     if(callback(sender, data)) { return; }

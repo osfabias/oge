@@ -51,23 +51,23 @@ struct {
   u64 totalUsage; 
   u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
   #endif
-} ogeMemoryState = { .initialized = OGE_FALSE };
+} s_state = { .initialized = OGE_FALSE };
 
 
 void ogeMemoryInit() {
-  if (ogeMemoryState.initialized) { 
+  if (s_state.initialized) { 
     OGE_WARN("Trying to initialize memory system while it's already initialized.");
     return;
   }
 
-  ogePlatformMemorySet(&ogeMemoryState, 0, sizeof(ogeMemoryState));
-  ogeMemoryState.initialized = OGE_TRUE;
+  ogePlatformMemorySet(&s_state, 0, sizeof(s_state));
+  s_state.initialized = OGE_TRUE;
 
   OGE_INFO("Memory system initialized.");
 }
 
 void ogeMemoryTerminate() {
-  if (!ogeMemoryState.initialized) {
+  if (!s_state.initialized) {
     OGE_WARN("Trying to termiate memory system while it's already terminated.");
     return;
   }
@@ -90,8 +90,8 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   pBlockHeader->size = size;
   pBlockHeader->tag  = memoryTag;
 
-  ogeMemoryState.totalUsage += size;
-  ogeMemoryState.perTagUsage[memoryTag] += size;
+  s_state.totalUsage += size;
+  s_state.perTagUsage[memoryTag] += size;
 
   return MEMORY_HTOS(pBlockHeader);
   #else
@@ -103,8 +103,8 @@ void* ogeReallocate(void *pBlock, u64 size) {
   #ifdef OGE_DEBUG
   OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
-  ogeMemoryState.totalUsage -= pBlockHeader->size - size;
-  ogeMemoryState.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size - size;
+  s_state.totalUsage -= pBlockHeader->size - size;
+  s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size - size;
 
   pBlockHeader = ogePlatformReallocate(pBlockHeader,
                                        sizeof(OgeMemoryDebugHeader) + size, OGE_FALSE);
@@ -120,8 +120,8 @@ void ogeDeallocate(void *pBlock) {
   #ifdef OGE_DEBUG
   OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
-  ogeMemoryState.totalUsage -= pBlockHeader->size;
-  ogeMemoryState.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
+  s_state.totalUsage -= pBlockHeader->size;
+  s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
 
   ogePlatformDeallocate(pBlockHeader, OGE_FALSE);
   #else
@@ -159,7 +159,7 @@ const char* ogeMemoryGetDebugInfo() {
     OGE_ASSERT(offset < MAX_DEBUG_INFO_LENGTH, "Memory debug info string is exceed the limit."); 
 
     char unit[4] = "Xib";
-    f64 amount = ogeMemoryState.perTagUsage[i];
+    f64 amount = s_state.perTagUsage[i];
     if (amount >= gib) {
       unit[0] = 'G';
       amount /= gib;
