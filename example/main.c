@@ -12,9 +12,15 @@ OgePlatformInitInfo platformInitInfo = {
   .height           = 720,
 };
 
+OgeRendererInitInfo rendererInitInfo = {
+  .graphicsAPI = OGE_GRAPHICS_API_VULKAN,
+  .applicationVersion = OGE_MAKE_VERSION(0, 0, 0),
+};
+
 OgeInitInfo ogeInitInfo = {
   .pLoggingInitInfo  = &loggingInitInfo,
   .pPlatformInitInfo = &platformInitInfo,
+  .pRendererInitInfo = &rendererInitInfo,
 };
 
 // Application functions

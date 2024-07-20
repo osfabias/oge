@@ -1,10 +1,9 @@
 #pragma once
 
 #include "oge/core/engine.h"
-#include "oge/core/logging.h"
-#include "oge/core/assertion.h"
-#include "oge/core/application.h"
 #include "oge/core/memory.h"
+#include "oge/core/logging.h"
+#include "oge/core/application.h"
 
 /**
  * @brief Fills an application struct.

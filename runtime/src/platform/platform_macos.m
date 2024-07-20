@@ -671,14 +671,14 @@ i8 ogePlatformGetMouseWheel() {
   return s_platformState.mouseState.wheel;
 }
 
-f64 ogePlatformGetTime() {
+u64 ogePlatformGetTime() {
   mach_timebase_info_data_t clockTimebase;
   mach_timebase_info(&clockTimebase);
 
   u64 machAbsolute = mach_absolute_time();
 
   u64 nanos = (f64)(machAbsolute * (u64)clockTimebase.numer) / (f64)clockTimebase.denom;
-  return nanos / 1.0e9; // Convert to seconds
+  return nanos * 0.000001f; // to milliseconds
 }
 
 void ogePlatformSleep(u64 ms) {

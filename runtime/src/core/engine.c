@@ -4,6 +4,7 @@
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
 #include "oge/core/application.h"
+#include "oge/renderer/renderer.h"
 
 struct {
   b8 initialized;
@@ -11,21 +12,28 @@ struct {
 } s_ogeState = { .initialized = OGE_FALSE };
 
 OGE_INLINE b8 initSystems() {
-  if(!ogeLoggingInit(s_ogeState.pApplication->pOgeInitInfo->pLoggingInitInfo)) {
+  const OgeInitInfo initInfo = *s_ogeState.pApplication->pOgeInitInfo;
+
+  if(!ogeLoggingInit(initInfo.pLoggingInitInfo)) {
     return OGE_FALSE;
   }
 
-  if (!ogePlatformInit(s_ogeState.pApplication->pOgeInitInfo->pPlatformInitInfo)) {
+  if (!ogePlatformInit(initInfo.pPlatformInitInfo)) {
     return OGE_FALSE;
   }
 
   ogeEventsInit();
   ogeInputInit();
 
+  if (!ogeRendererInit(initInfo.pRendererInitInfo)) {
+    return OGE_FALSE;
+  }
+
   return OGE_TRUE;
 }
 
 OGE_INLINE void terminateSystems() {
+  ogeRendererTerminate();
   ogeInputTerminate();
   ogeEventsTerminate();
   ogePlatformTerminate();
@@ -33,6 +41,8 @@ OGE_INLINE void terminateSystems() {
 }
 
 b8 ogeInit(const OgeApplication *pApplication) {
+  OGE_INFO("OGE info\nversion: %d.%d.%d", OGE_VERSION_MAJOR, OGE_VERSION_MINOR, OGE_VERSION_PATCH);
+
   if (s_ogeState.initialized) {
     OGE_WARN("Trying to initialize OGE while it's already initialized.");
     return OGE_TRUE;

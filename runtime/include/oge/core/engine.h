@@ -3,6 +3,7 @@
 #include "oge/defines.h"
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
+#include "oge/renderer/renderer.h"
 
 // forward decl for struct from oge/core/application.h
 typedef struct OgeApplication OgeApplication;
@@ -23,6 +24,7 @@ typedef struct OgeInitInfo OgeInitInfo;
 struct OgeInitInfo {
   OgeLoggingInitInfo  *pLoggingInitInfo;
   OgePlatformInitInfo *pPlatformInitInfo;
+  OgeRendererInitInfo *pRendererInitInfo;
 };
 
 /**

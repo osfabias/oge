@@ -1,16 +1,29 @@
 project(oge VERSION 0.0.1)
 
+find_package(Vulkan REQUIRED)
+
 # Setup "oge" library target
 add_library(oge SHARED
-            ./src/core/input.c
-            ./src/core/engine.c
-            ./src/core/memory.c
-            ./src/core/events.c
-            ./src/core/logging.c
-            ./src/containers/darray.c
-            )
+  ./src/core/input.c
+  ./src/core/engine.c
+  ./src/core/memory.c
+  ./src/core/events.c
+  ./src/core/logging.c
+
+  ./src/renderer/renderer.c
+
+  ./src/utils/clock.c
+
+  ./src/containers/darray.c
+  )
 target_include_directories(oge PUBLIC include)
-target_compile_definitions(oge PRIVATE OGE_EXPORT)
+target_compile_definitions(oge PRIVATE
+  OGE_EXPORT
+  OGE_VERSION_MAJOR=${OGE_VERSION_MAJOR}
+  OGE_VERSION_MINOR=${OGE_VERSION_MINOR}
+  OGE_VERSION_PATCH=${OGE_VERSION_PATCH}
+)
+
 
 # Add platform source files
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -20,11 +33,25 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "Linux platform not implemented.")
   # Add source files here instead of "message()" call
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MACOS
-  target_sources(oge PRIVATE ./src/platform/platform_macos.m)
+  target_sources(oge PRIVATE
+    ./src/platform/platform_macos.m
+
+    ./src/renderer/metal.c
+    ./src/renderer/vulkan.c
+  )
 
   find_library(COCOA_LIBRARY Cocoa)
   find_library(QUARTZ_LIBRARY QuartzCore)
-  target_link_libraries(oge PUBLIC ${COCOA_LIBRARY} ${QUARTZ_LIBRARY})
+  target_link_libraries(oge PUBLIC
+    ${COCOA_LIBRARY}
+    ${QUARTZ_LIBRARY}
+    Vulkan::Vulkan
+  )
+
+  target_compile_definitions(oge PUBLIC
+    OGE_METAL_ENABLED
+    OGE_VULKAN_ENABLED
+  )
 elseif()
   message(FATAL_ERROR "Unknown platform.")
 endif()

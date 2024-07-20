@@ -105,9 +105,9 @@ void ogePlatformGetMousePosition(u16 *x, u16 *y);
 i8 ogePlatformGetMouseWheel();
 
 /**
- * @brief Returns amount of seconds past since the unix epoch.
+ * @brief Returns amount of milliseconds past since the unix epoch.
  */
-f64 ogePlatformGetTime();
+u64 ogePlatformGetTime();
 
 /**
  * @brief Sleeps on current thread for the given amount of

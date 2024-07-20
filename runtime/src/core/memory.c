@@ -26,11 +26,8 @@ char* pMemoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
   "ARRAY      ",
   "DARRAY     ",
   "DICT       ",
-  "RING_QUEUE ",
-  "BST        ",
   "STRING     ",
   "APPLICATION",
-  "JOB        ",
   "TEXTURE    ",
   "MATERIAL   ",
   "RENDERER   ",
@@ -92,6 +89,8 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
 
   s_state.totalUsage += size;
   s_state.perTagUsage[memoryTag] += size;
+  
+  OGE_TRACE("Allocated block (%p) of %dB, tag: %d.", pBlockHeader, size, memoryTag);
 
   return MEMORY_HTOS(pBlockHeader);
   #else
@@ -108,7 +107,12 @@ void* ogeReallocate(void *pBlock, u64 size) {
 
   pBlockHeader = ogePlatformReallocate(pBlockHeader,
                                        sizeof(OgeMemoryDebugHeader) + size, OGE_FALSE);
+
+  OGE_TRACE("Reallocated block (%p) of %dB to (%p) %dB, tag: .",
+    MEMORY_STOH(pBlock), pBlockHeader->size, size, pBlockHeader, pBlockHeader->tag);
+
   pBlockHeader->size = size;
+
 
   return MEMORY_HTOS(pBlockHeader);
   #else
@@ -118,12 +122,14 @@ void* ogeReallocate(void *pBlock, u64 size) {
 
 void ogeDeallocate(void *pBlock) {
   #ifdef OGE_DEBUG
-  OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
+  const OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
   s_state.totalUsage -= pBlockHeader->size;
   s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
 
-  ogePlatformDeallocate(pBlockHeader, OGE_FALSE);
+  OGE_TRACE("Deallocated block (%p) of %dB, tag: %d.", pBlockHeader, pBlockHeader->size, pBlockHeader->tag);
+
+  ogePlatformDeallocate(MEMORY_STOH(pBlock), OGE_FALSE);
   #else
   ogePlatformDeallocate(pBlock, OGE_FALSE);
   #endif

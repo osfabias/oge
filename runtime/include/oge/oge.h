@@ -9,4 +9,6 @@
 
 #include "oge/containers/darray.h"
 
+#include "oge/renderer/renderer.h"
+
 #include "oge/entry.h"

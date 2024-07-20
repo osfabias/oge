@@ -37,7 +37,7 @@ void* ogeDArrayAllocate(u64 length, u64 stride) {
 
 void ogeDArrayDeallocate(void *pDArray) {
   ogeDeallocate(DARRAY_STOH(pDArray));
-  OGE_TRACE("DArray deallocated (%p)", DARRAY_STOH(pDArray));
+  OGE_TRACE("DArray deallocated (%p).", DARRAY_STOH(pDArray));
 }
 
 void* ogeDArrayResize(void *pDArray, u64 length) {
