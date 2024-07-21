@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 
 #import <Cocoa/Cocoa.h>
+#include <vulkan/vulkan_core.h>
 #import <QuartzCore/QuartzCore.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <Foundation/Foundation.h>

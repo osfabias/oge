@@ -19,17 +19,15 @@ OGE_API void ogeDArrayDeallocate(void *pDArray);
  * @brief Returns a length (amount of elements) of a dynamic array.
  * @param pDArray A pointer to a dynamic array.
  */
-OGE_INLINE u64 ogeDArrayLength(void *pDArray) {
-  return *((u64*)pDArray - 2); // see darray.c for header structure
-}
+#define ogeDArrayLength(pDArray) \
+  *((u64*)pDArray - 2) // see darray.c for darray header structure
 
 /**
  * @brief Return a stride (size of an element) of a dynamic array.
  * @param pDArray A pointer to a dynamic array.
  */
-OGE_INLINE u64 ogeDArrayStride(void *pDArray) {
-  return *((u64*)pDArray - 1); // see darray.c for header structure
-}
+#define ogeDArrayStride(pDArray) \
+  *((u64*)pDArray - 1) // see darray.c for darray header structure
 
 /**
  * @brief Resizes a dynamic array to the specified length.
@@ -52,7 +50,7 @@ OGE_API void* ogeDArrayShrink(void *pDArray);
 OGE_API void* ogeDArrayAppend(void *pDArray, const void *pValue);
 
 /**
- *
+ * @brief Extends a dynamic array.
  */
 OGE_API void* ogeDArrayExtend(void *pDArray, const void *pSrcBlock, u64 length);
 
@@ -81,6 +79,12 @@ OGE_API void ogeDArrayPopAt(void *pDArray, u64 index, void *pOut);
  * @brief Deletes an element at given index from a dynamic array.
  */
 OGE_API void ogeDArrayRemove(void *pDArray, u64 index);
+
+/**
+ * @brief Clears a dynamic array.
+ */
+#define ogeDArrayClear(pDArray) \
+  *((u64*)pDArray - 2) = 0 // see darray.c for darray header structure
 
 /**
  * @brief Returns an index of first appearance of pValue.
