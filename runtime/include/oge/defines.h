@@ -74,7 +74,20 @@
 // ~ Utils
 #define CLAMP(x, l, r) (((x) <= (l)) ? (l) : ((x) >= (r)) ? (r) : (x))
 
+/**
+ * @brief Minimum macro.
+ *
+ * Do not use expressions as a values, because it will
+ * make things slower.
+ */
 #define OGE_MIN(x, y) ((x) < (y) ? (x) : (y))
+
+/**
+ * @brief Minimum macro.
+ *
+ * Do not use expressions as a values, because it will
+ * make things slower.
+ */
 #define OGE_MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #define OGE_GIBIBYTES(x) ((x) * 1024ULL * 1024ULL * 1024ULL)

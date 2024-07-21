@@ -22,12 +22,12 @@ int main() {
   ogeMemoryInit();
 
   if (!ogeApplicationCreate(&ogeApplication)) {
-    OGE_FATAL("Failed to create OGE application");
+    OGE_FATAL("Failed to create OGE application.");
     return 1;
   }
 
   if(!ogeInit(&ogeApplication)) {
-    OGE_FATAL("Failed to initialize OGE");
+    OGE_FATAL("Failed to initialize OGE.");
     return 1;
   }
 

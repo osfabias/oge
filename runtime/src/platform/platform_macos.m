@@ -14,12 +14,41 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <Foundation/Foundation.h>
 
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_metal.h>
+
 #include "oge/defines.h"
-// control keys
 #include "oge/core/input.h"
 #include "oge/core/logging.h"
 #include "oge/core/platform.h"
 #include "oge/core/assertion.h"
+
+@class ContentView;
+@class WindowDelegate;
+@class ApplicationDelegate;
+
+struct {
+  b8 initialized;
+  ApplicationDelegate *pAppDelegate;
+  WindowDelegate *pWindowDelegate;
+  NSWindow *pWindow;
+  ContentView *pView;
+  CAMetalLayer *pMetalLayer;
+  b8 terminateRequsted;
+  u8 keyStates[OGE_KEY_MAX_ENUM];
+  struct {
+    u16 x;
+    u16 y;
+    i8 wheel;
+    u8 buttonStates[OGE_KEY_MAX_ENUM];
+  } mouseState;
+  f32 deviceRatio;
+} s_platformState;
+
+const char* s_ppRequiredVulkanExtension[2] = {
+  "VK_KHR_surface",
+  "VK_EXT_metal_surface",
+};
 
 static OgeKey translateKey(OgeKey key) {
   // https://boredzo.org/blog/wp-content/uploads/2007/05/IMTx-virtual-keycodes.pdf
@@ -254,32 +283,6 @@ static OgeKey translateKey(OgeKey key) {
   }
 }
 
-@class ContentView;
-@class WindowDelegate;
-@class ApplicationDelegate;
-
-typedef struct OgeMacOSHandleInfo {
-    CAMetalLayer *pLayer;
-} OgeMacOSHandleInfo;
- 
-struct {
-  b8 initialized;
-  ApplicationDelegate *pAppDelegate;
-  WindowDelegate *pWindowDelegate;
-  NSWindow *pWindow;
-  ContentView *pView;
-  OgeMacOSHandleInfo handle;
-  b8 terminateRequsted;
-  u8 keyStates[OGE_KEY_MAX_ENUM];
-  struct {
-    u16 x;
-    u16 y;
-    i8 wheel;
-    u8 buttonStates[OGE_KEY_MAX_ENUM];
-  } mouseState;
-  f32 deviceRatio;
-} s_platformState;
-
 @interface WindowDelegate : NSObject <NSWindowDelegate> {}
 
 @end // WindowDelegate
@@ -351,10 +354,10 @@ struct {
     // Need to invert Y on macOS, since origin is bottom-left.
     // Also need to scale the mouse position by the device pixel
     // ratio so screen lookups are correct.
-    NSSize window_size = s_platformState.handle.pLayer.drawableSize;
-    s_platformState.mouseState.x = pos.x * s_platformState.handle.pLayer.contentsScale;
+    NSSize window_size = s_platformState.pMetalLayer.drawableSize;
+    s_platformState.mouseState.x = pos.x * s_platformState.pMetalLayer.contentsScale;
     s_platformState.mouseState.y =
-      window_size.height - (pos.y * s_platformState.handle.pLayer.contentsScale);
+      window_size.height - (pos.y * s_platformState.pMetalLayer.contentsScale);
   }
 
   - (void)rightMouseDown:(NSEvent *)event {
@@ -504,7 +507,7 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
   OGE_TRACE("NS content view successfully allocated.");
 
   // Layer creation
-  s_platformState.handle.pLayer = [CAMetalLayer layer];
+  s_platformState.pMetalLayer = [CAMetalLayer layer];
   OGE_TRACE("CAMetal layer successfully created.");
 
   // Setting window properties
@@ -530,26 +533,26 @@ b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo) {
   [s_platformState.pWindow makeKeyAndOrderFront:nil];
 
   // Handle content scaling for various fidelity displays (i.e. Retina)
-  s_platformState.handle.pLayer.bounds = s_platformState.pView.bounds;
+  s_platformState.pMetalLayer.bounds = s_platformState.pView.bounds;
 
   // It's important to set the drawableSize to the actual backing pixels. When rendering
   // full-screen, we can skip the macOS compositor if the size matches the display size.
-  s_platformState.handle.pLayer.drawableSize = [s_platformState.pView convertSizeToBacking:s_platformState.pView.bounds.size];
+  s_platformState.pMetalLayer.drawableSize = [s_platformState.pView convertSizeToBacking:s_platformState.pView.bounds.size];
 
   // In its implementation of vkGetPhysicalDeviceSurfaceCapabilitiesKHR, MoltenVK takes into
   // consideration both the size (in points) of the bounds, and the contentsScale of the
   // CAMetalLayer from which the Vulkan surface was created.
   // NOTE: See also https://github.com/KhronosGroup/MoltenVK/issues/428
-  s_platformState.handle.pLayer.contentsScale = s_platformState.pView.window.backingScaleFactor;
+  s_platformState.pMetalLayer.contentsScale = s_platformState.pView.window.backingScaleFactor;
 
   // Save off the device pixel ratio.
-  s_platformState.deviceRatio = s_platformState.handle.pLayer.contentsScale;
-  [s_platformState.pView setLayer:s_platformState.handle.pLayer];
+  s_platformState.deviceRatio = s_platformState.pMetalLayer.contentsScale;
+  [s_platformState.pView setLayer:s_platformState.pMetalLayer];
 
   // This is set to NO by default, but is also important to ensure we can bypass the compositor
   // in full-screen mode
   // NOTE: See "Direct to Display" http://metalkit.org/2017/06/30/introducing-metal-2.html.
-  s_platformState.handle.pLayer.opaque = YES;
+  s_platformState.pMetalLayer.opaque = YES;
 
   OGE_TRACE("Additional preparations finished.");
 
@@ -685,5 +688,24 @@ void ogePlatformSleep(u64 ms) {
   OGE_TRACE("Sleeping on current thread for %d ms", ms);
   if (ms >= 1000) { sleep(ms / 1000); }
   usleep((ms % 1000) * 1000);
+}
+
+const char** ogePlatformGetRequiredVkExtensions(u16 *extensionCount) {
+  if (extensionCount) { *extensionCount = 2; }
+  return s_ppRequiredVulkanExtension;
+}
+
+VkResult ogePlatformCreateVkSurface(
+  VkInstance instance, const VkAllocationCallbacks *pAllocator,
+  VkSurfaceKHR *pSurface) {
+
+  VkMetalSurfaceCreateInfoEXT info = {
+    .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
+    .flags = 0,
+    .pLayer = s_platformState.pMetalLayer,
+    .pNext = 0,
+  };
+
+  return vkCreateMetalSurfaceEXT(instance, &info, pAllocator, pSurface);
 }
 

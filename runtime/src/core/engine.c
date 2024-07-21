@@ -26,6 +26,7 @@ OGE_INLINE b8 initSystems() {
   ogeInputInit();
 
   if (!ogeRendererInit(initInfo.pRendererInitInfo)) {
+    OGE_ERROR("Failed to initialize renderer.");
     return OGE_FALSE;
   }
 
@@ -53,7 +54,7 @@ b8 ogeInit(const OgeApplication *pApplication) {
   if (!initSystems()) { return OGE_FALSE; }
   
   // Initialize application
-  if(!s_ogeState.pApplication->pInitFunction(s_ogeState.pApplication)) {
+  if(!s_ogeState.pApplication->pfnInit(s_ogeState.pApplication)) {
     OGE_FATAL("Failed to init OGE application.");
     return 1;
   }
@@ -70,12 +71,12 @@ void ogeRun() {
   while (!ogePlatformTerminateRequested()) {
     ogePlatformPumpMessages();
 
-    if (!s_ogeState.pApplication->pUpdateFunction(s_ogeState.pApplication)) {
+    if (!s_ogeState.pApplication->pfnUpdate(s_ogeState.pApplication)) {
       OGE_ERROR("Failed on OGE application update function call.");
       break;
     }
 
-    if (!s_ogeState.pApplication->pRenderFunction(s_ogeState.pApplication)) {
+    if (!s_ogeState.pApplication->pfnRender(s_ogeState.pApplication)) {
       OGE_ERROR("Failed on OGE application render function call.");
       break;
     }
@@ -91,7 +92,7 @@ void ogeTerminate() {
     return;
   }
 
-  s_ogeState.pApplication->pTerminateFunction(s_ogeState.pApplication);
+  s_ogeState.pApplication->pfnTerminate(s_ogeState.pApplication);
   OGE_INFO("OGE application terminated.");
 
   terminateSystems();

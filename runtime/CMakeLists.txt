@@ -1,5 +1,6 @@
 project(oge VERSION 0.0.1)
 
+# Find packages
 find_package(Vulkan REQUIRED)
 
 # Setup "oge" library target
@@ -23,11 +24,11 @@ target_compile_definitions(oge PRIVATE
   OGE_VERSION_MINOR=${OGE_VERSION_MINOR}
   OGE_VERSION_PATCH=${OGE_VERSION_PATCH}
 )
-
+target_link_libraries(oge PUBLIC Vulkan::Vulkan)
 
 # Add platform source files
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  message(FATAL_ERROR "Windows platform now implemented.")
+  message(FATAL_ERROR "Windows platform not implemented.")
   # Add source files here instead of "message()" call
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "Linux platform not implemented.")
@@ -35,9 +36,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MACOS
   target_sources(oge PRIVATE
     ./src/platform/platform_macos.m
-
-    ./src/renderer/metal.c
-    ./src/renderer/vulkan.c
   )
 
   find_library(COCOA_LIBRARY Cocoa)
@@ -45,7 +43,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MACOS
   target_link_libraries(oge PUBLIC
     ${COCOA_LIBRARY}
     ${QUARTZ_LIBRARY}
-    Vulkan::Vulkan
   )
 
   target_compile_definitions(oge PUBLIC

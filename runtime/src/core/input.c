@@ -31,7 +31,8 @@ void ogeInputInit() {
   ogeMemorySet(&s_inputState, 0, sizeof(s_inputState));
   s_inputState.initialized = OGE_TRUE;
   s_inputState.keyStatesCurrent = ogePlatformGetKeyStates();
-  s_inputState.mouseStateCurrent.buttonStates = ogePlatformGetMouseButtonStates();
+  s_inputState.mouseStateCurrent.buttonStates =
+    ogePlatformGetMouseButtonStates();
 }
 
 void ogeInputTerminate() {
@@ -45,10 +46,6 @@ void ogeInputTerminate() {
 
 OGE_INLINE void updateState() {
   // Mouse
-  ogeMemoryCopy(s_inputState.mouseStateCurrent.buttonStates,
-                        ogePlatformGetMouseButtonStates(),
-                        sizeof(s_inputState.mouseStateCurrent.buttonStates));
-
   ogePlatformGetMousePosition(&s_inputState.mouseStateCurrent.x,
                               &s_inputState.mouseStateCurrent.y);
 

@@ -52,6 +52,11 @@ OGE_API void* ogeDArrayShrink(void *pDArray);
 OGE_API void* ogeDArrayAppend(void *pDArray, const void *pValue);
 
 /**
+ *
+ */
+OGE_API void* ogeDArrayExtend(void *pDArray, const void *pSrcBlock, u64 length);
+
+/**
  * @brief Inserts a given value at specified index in a dynamic array.
  * @param pDArray A pointer to a dynamic array.
  * @param index An index to insert at.

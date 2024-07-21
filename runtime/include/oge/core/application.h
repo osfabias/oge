@@ -36,10 +36,10 @@ typedef struct OgeApplication OgeApplication;
 struct OgeApplication {
   OgeInitInfo *pOgeInitInfo;
 
-  b8   (*pInitFunction)(const OgeApplication *pApplication);
-  b8   (*pUpdateFunction)(const OgeApplication *pApplication);
-  b8   (*pRenderFunction)(const OgeApplication *pApplication);
-  void (*pTerminateFunction)(const OgeApplication *pApplication);
+  b8   (*pfnInit)(const OgeApplication *pApplication);
+  b8   (*pfnUpdate)(const OgeApplication *pApplication);
+  b8   (*pfnRender)(const OgeApplication *pApplication);
+  void (*pfnTerminate)(const OgeApplication *pApplication);
 
   void *pState;
 };

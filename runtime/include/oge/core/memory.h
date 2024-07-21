@@ -35,3 +35,4 @@ OGE_API void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size);
 OGE_API i32  ogeMemoryCompare(const void *pBlock1, const void *pBlock2, u64 size);
 
 OGE_API const char* ogeMemoryGetDebugInfo();
+OGE_API const char* ogeMemoryTagToString(OgeMemoryTag memoryTag);

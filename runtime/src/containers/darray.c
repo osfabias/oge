@@ -9,7 +9,7 @@ typedef struct OgeDArrayHeader {
   u64 stride;
 } OgeDArrayHeader;
 
-#define DARRAY_RESIZE_FACTOR 1.25f
+#define DARRAY_RESIZE_FACTOR 1.5f
 
 #define DARRAY_SIZE(length, stride) \
   sizeof(OgeDArrayHeader) + (length) * (stride)
@@ -104,6 +104,24 @@ void* ogeDArrayInsert(void *pDArray, u64 index, const void *pValue) {
   ogeMemoryCopy(pDArray, pValue, pDArrayHeader->stride);
   pDArrayHeader->length += 1;
 
+  return pDArray;
+}
+
+void* ogeDArrayExtend(void *pDArray, const void *pSrcBlock, u64 length) {
+  OgeDArrayHeader *pDArrayHeader = DARRAY_STOH(pDArray);
+
+  if (pDArrayHeader->length + length > pDArrayHeader->capacity) {
+    const u64 l1 = length * DARRAY_RESIZE_FACTOR;
+    const u64 l2 = pDArrayHeader->length + length;
+    const u64 newLength = OGE_MAX(l1, l2);
+    pDArray = ogeDArrayResize(pDArray, newLength);
+    pDArrayHeader = DARRAY_STOH(pDArray);
+  }
+
+  ogeMemoryCopy(
+    ((u8*)pDArray) + pDArrayHeader->length * pDArrayHeader->stride,
+    pSrcBlock, pDArrayHeader->stride * length);
+  pDArrayHeader->length += length;
   return pDArray;
 }
 

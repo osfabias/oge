@@ -13,8 +13,8 @@ OgePlatformInitInfo platformInitInfo = {
 };
 
 OgeRendererInitInfo rendererInitInfo = {
-  .graphicsAPI = OGE_GRAPHICS_API_VULKAN,
-  .applicationVersion = OGE_MAKE_VERSION(0, 0, 0),
+  .applicationVersion = OGE_MAKE_VERSION(0, 0, 1),
+  .pApplicationName = "OGE application",
 };
 
 OgeInitInfo ogeInitInfo = {
@@ -40,11 +40,11 @@ void applicationTerminate(const OgeApplication *pApplication) { }
 
 // Application create function
 b8 ogeApplicationCreate(OgeApplication *pApplication) {
-  pApplication->pOgeInitInfo       = &ogeInitInfo;
-  pApplication->pInitFunction      = applicationInit;
-  pApplication->pUpdateFunction    = applicationUpdate;
-  pApplication->pRenderFunction    = applicationRender;
-  pApplication->pTerminateFunction = applicationTerminate;
+  pApplication->pOgeInitInfo = &ogeInitInfo;
+  pApplication->pfnInit      = applicationInit;
+  pApplication->pfnUpdate    = applicationUpdate;
+  pApplication->pfnRender    = applicationRender;
+  pApplication->pfnTerminate = applicationTerminate;
 
   return OGE_TRUE;
 }

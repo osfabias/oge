@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 #include "oge/defines.h"
 
 typedef struct OgePlatformInitInfo {
@@ -11,7 +13,7 @@ typedef struct OgePlatformInitInfo {
 /**
  * @brief Initializes platform layer.
  */
-b8    ogePlatformInit(const OgePlatformInitInfo *pInitInfo);
+b8 ogePlatformInit(const OgePlatformInitInfo *pInitInfo);
 
 /**
  * @brief Terminates platform layer.
@@ -117,3 +119,18 @@ u64 ogePlatformGetTime();
  * unused update power in order not to use 100% of cpu.
  */
 void ogePlatformSleep(u64 ms);
+
+/**
+ * @brief Returns number of required extensions for Vulkan
+ * and their names.
+ *
+ * User shouldn't free returned array.
+ */
+const char** ogePlatformGetRequiredVkExtensions(u16 *extensionCount);
+
+/**
+ * @brief Creates Vulkan surface.
+ */
+VkResult ogePlatformCreateVkSurface(
+  VkInstance instance, const VkAllocationCallbacks *pAllocator,
+  VkSurfaceKHR *pSurface);
