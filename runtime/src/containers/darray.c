@@ -30,14 +30,11 @@ void* ogeDArrayAllocate(u64 length, u64 stride) {
   pDArrayHeader->length   = 0;
   pDArrayHeader->stride   = stride;
 
-  OGE_TRACE("DArray allocated (%p): %lu x %luB", pDArrayHeader, length, stride);
-
   return DARRAY_HTOS(pDArrayHeader);
 }
 
 void ogeDArrayDeallocate(void *pDArray) {
   ogeDeallocate(DARRAY_STOH(pDArray));
-  OGE_TRACE("DArray deallocated (%p).", DARRAY_STOH(pDArray));
 }
 
 void* ogeDArrayResize(void *pDArray, u64 length) {
@@ -54,8 +51,6 @@ void* ogeDArrayResize(void *pDArray, u64 length) {
 
   pDArrayHeader->capacity = length;
   pDArrayHeader->length = OGE_MIN(pDArrayHeader->length, length);
-
-  OGE_TRACE("DArray resized (%p -> %p): %lu", DARRAY_STOH(pDArray), pDArrayHeader, length);
 
   return DARRAY_HTOS(pDArrayHeader);
 }

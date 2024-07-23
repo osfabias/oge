@@ -91,9 +91,6 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   s_state.totalUsage += size;
   s_state.perTagUsage[memoryTag] += size;
   
-  OGE_TRACE("Allocated block (%p) of %dB, tag: %s.", pBlockHeader, size, 
-            ogeMemoryTagToString(memoryTag));
-
   return MEMORY_HTOS(pBlockHeader);
   #else
   return ogePlatformAllocate(size, OGE_FALSE);
@@ -110,10 +107,6 @@ void* ogeReallocate(void *pBlock, u64 size) {
   pBlockHeader = ogePlatformReallocate(pBlockHeader,
                                        sizeof(OgeMemoryDebugHeader) + size, OGE_FALSE);
 
-  OGE_TRACE("Reallocated block (%p) of %dB to (%p) %dB, tag: %s.",
-    MEMORY_STOH(pBlock), pBlockHeader->size, pBlockHeader, size,
-    ogeMemoryTagToString(pBlockHeader->tag));
-
   pBlockHeader->size = size;
 
 
@@ -129,9 +122,6 @@ void ogeDeallocate(void *pBlock) {
 
   s_state.totalUsage -= pBlockHeader->size;
   s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
-
-  OGE_TRACE("Deallocated block (%p) of %dB, tag: %s.",
-            pBlockHeader, pBlockHeader->size, ogeMemoryTagToString(pBlockHeader->tag));
 
   ogePlatformDeallocate(MEMORY_STOH(pBlock), OGE_FALSE);
   #else

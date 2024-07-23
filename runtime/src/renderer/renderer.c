@@ -8,7 +8,11 @@
 #include "oge/core/platform.h"
 #include "oge/core/assertion.h"
 #include "oge/containers/darray.h"
+
+#ifdef OGE_DEBUG
 #include "oge/renderer/debug.h"
+#endif
+
 #include "oge/renderer/querries.h"
 #include "oge/renderer/renderer.h"
 #include "oge/renderer/renderer-types.h"
@@ -20,9 +24,19 @@ struct {
   VkInstance instance;
 
   VkSurfaceKHR surface;
+  OgeSwapchainSupport swapchainSupport;
 
   VkPhysicalDevice physicalDevice;
+  VkPhysicalDeviceFeatures physicalDeviceFeatures;
+  VkPhysicalDeviceProperties physicalDeviceProperties;
+  VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
   OgeQueueFamilyIndicies queueFamilyIndicies;
+
+  VkDevice logicalDevice;
+  VkQueue graphicsQueue;
+  VkQueue transferQueue;
+  VkQueue computeQueue;
+  VkQueue presentQueue;
 
   VkAllocationCallbacks *pAllocator;
   #ifdef OGE_DEBUG
@@ -32,6 +46,18 @@ struct {
   .initialized = OGE_FALSE,
 
   .pAllocator = 0, // temporary, while custom allocator isn't written
+};
+
+
+const char *s_ppRequiredDeviceExtensions[] = {
+#ifdef   OGE_PLATFORM_APPLE
+  #define REQUIRED_DEVICE_EXTENSIONS_COUNT 2
+
+  VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+  "VK_KHR_portability_subset",
+#else
+  #error "Device extensions for this platform aren't defined."
+#endif
 };
 
 #ifdef OGE_DEBUG
@@ -62,24 +88,6 @@ void createDebugMessenger() {
   }
 
   OGE_TRACE("Vulkan debug messenger created.");
-}
-
-b8 isValidationLayerSupported(const char *pLayerName) {
-  OGE_TRACE("Checking Vulkan validation layer support.");
-  u32 layerCount;
-  const VkResult result = vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-  VkLayerProperties pLayerProperties[layerCount];
-  vkEnumerateInstanceLayerProperties(&layerCount, pLayerProperties);
-
-  for (u32 i = 0; i < layerCount; ++i) {
-    if (strcmp(pLayerName, pLayerProperties[i].layerName) == 0) {
-      OGE_INFO("Vulkan validation layer is enabled.");
-      return OGE_TRUE;
-    }
-  }
-
-  OGE_ERROR("Vulkan validation layer isn't supported.");
-  return OGE_FALSE;
 }
 #endif
 
@@ -122,7 +130,7 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
   #ifdef OGE_DEBUG
   const char *pValidationLayerName = "VK_LAYER_KHRONOS_validation";
 
-  if (isValidationLayerSupported(pValidationLayerName)) {
+  if (ogeIsValidationLayerSupported(pValidationLayerName)) {
     info.enabledLayerCount   = 1;
     info.ppEnabledLayerNames = &pValidationLayerName;
 
@@ -192,20 +200,14 @@ b8 isPhysicalDeviceSuitable(VkPhysicalDevice device) {
   }
 
   // Swapchain support
-  OgeSwapchainSupport swapchainSupport = {
-    .pFormats = 0,
-    .pPresentModes = 0,
-  };
+  OgeSwapchainSupport swapchainSupport;
   ogeQuerrySwapchainSupport(
     device, s_rendererState.surface, &swapchainSupport);
 
-  if (swapchainSupport.formatCount == 0 ||
+  if (swapchainSupport.formatCount      == 0 ||
       swapchainSupport.presentModeCount == 0) {
-    OGE_TRACE("GPU %s failed on swapchain support check.");
-
-    ogeDeallocate(swapchainSupport.pFormats);
-    ogeDeallocate(swapchainSupport.pPresentModes);
-
+    OGE_TRACE("GPU %s failed on swapchain support check.",
+              deviceProperties.deviceName);
     return OGE_FALSE;
   }
 
@@ -215,12 +217,42 @@ b8 isPhysicalDeviceSuitable(VkPhysicalDevice device) {
     device, 0, &availableExtensionCount, 0);
 
   if (availableExtensionCount == 0) {
-    OGE_TRACE("GPU %s failed on device extensions check.");
+    OGE_TRACE("GPU %s failed on device extensions check.",
+              deviceProperties.deviceName);
     return OGE_FALSE;
   }
 
-  ogeDeallocate(swapchainSupport.pFormats);
-  ogeDeallocate(swapchainSupport.pPresentModes);
+  VkExtensionProperties pDeviceExtensions[availableExtensionCount]; 
+  vkEnumerateDeviceExtensionProperties(
+    device, 0, &availableExtensionCount, pDeviceExtensions);
+
+  b8 extensionFound;
+  for (u32 i = 0; i < REQUIRED_DEVICE_EXTENSIONS_COUNT; ++i) {
+    extensionFound = OGE_FALSE;
+
+    for (u32 j = 0; j < availableExtensionCount; ++j) {
+      if (strcmp(s_ppRequiredDeviceExtensions[i],
+                 pDeviceExtensions[j].extensionName) == 0) {
+        extensionFound = OGE_TRUE;
+        break;
+      }
+    }
+
+    if (!extensionFound) {
+      OGE_TRACE("GPU %s failed on device extensions check.",
+                deviceProperties.deviceName);
+      return OGE_FALSE;
+    }
+  }
+
+  // Sampler anisotropy
+  VkPhysicalDeviceFeatures deviceFeatures;
+  vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+  if (!deviceFeatures.samplerAnisotropy) {
+    OGE_TRACE("GPU %s failed on device feature check.",
+              deviceProperties.deviceName);
+    return OGE_FALSE;
+  }
 
   OGE_TRACE("GPU %s is suitable.",
             deviceProperties.deviceName);
@@ -246,15 +278,139 @@ b8 selectPhysicalDevice() {
 
     s_rendererState.physicalDevice = pDevices[i];
 
+    VkPhysicalDeviceFeatures deviceFeatures;
     VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties(pDevices[i], &deviceProperties);
+    VkPhysicalDeviceMemoryProperties deviceMemoryProperties;
 
-    OGE_INFO("Selected GPU: %s.", deviceProperties.deviceName);
+    vkGetPhysicalDeviceFeatures(pDevices[i], &deviceFeatures);
+    vkGetPhysicalDeviceProperties(pDevices[i], &deviceProperties);
+    vkGetPhysicalDeviceMemoryProperties(
+      pDevices[i], &deviceMemoryProperties);
+
+    s_rendererState.physicalDeviceFeatures = deviceFeatures;
+    s_rendererState.physicalDeviceProperties = deviceProperties;
+    s_rendererState.physicalDeviceMemoryProperties = 
+      deviceMemoryProperties;
+
+    ogeQuerryQueueFamilyIndicies(
+      pDevices[i], s_rendererState.surface,
+      &s_rendererState.queueFamilyIndicies);
+
+    ogeQuerrySwapchainSupport(
+      pDevices[i], s_rendererState.surface,
+      &s_rendererState.swapchainSupport);
+
+    OGE_INFO(
+      "Selected GPU:\nname:               %s\ndriver version:     %d.%d.%d\nVulkan API version: %d.%d.%d", 
+      deviceProperties.deviceName,
+
+      VK_VERSION_MAJOR(deviceProperties.driverVersion),
+      VK_VERSION_MINOR(deviceProperties.driverVersion),
+      VK_VERSION_PATCH(deviceProperties.driverVersion),
+
+      VK_VERSION_MAJOR(deviceProperties.apiVersion),
+      VK_VERSION_MINOR(deviceProperties.apiVersion),
+      VK_VERSION_PATCH(deviceProperties.apiVersion)
+    );
     return OGE_TRUE;
   }
 
   OGE_ERROR("Failed to find a suitable GPU.");
   return OGE_FALSE;
+}
+
+b8 createLogicalDevice() {
+  // Queues
+  u32 queueFamilyCount;
+  vkGetPhysicalDeviceQueueFamilyProperties(
+    s_rendererState.physicalDevice, &queueFamilyCount, 0);
+
+  u8 queueCount[queueFamilyCount];
+  ++queueCount[s_rendererState.queueFamilyIndicies.graphics];
+  ++queueCount[s_rendererState.queueFamilyIndicies.transfer];
+  ++queueCount[s_rendererState.queueFamilyIndicies.compute];
+  ++queueCount[s_rendererState.queueFamilyIndicies.present];
+
+  u32 queueToCreateCount = 0;
+  for (u32 i = 0; i < queueFamilyCount; ++i) {
+    queueToCreateCount += queueCount[i] > 0;
+  }
+
+  VkDeviceQueueCreateInfo pQueueCreateInfos[queueToCreateCount];
+  u32 j = 0;
+
+  const f32 queuePriopity = 1.0f;
+  for (u32 i = 0; i < queueFamilyCount; ++i) {
+    if (queueCount[i] == 0) { continue; }
+
+    VkDeviceQueueCreateInfo *ptr  =
+      pQueueCreateInfos + j++;
+
+    ptr->sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    ptr->flags = 0;
+    ptr->queueFamilyIndex = i;
+    ptr->queueCount = queueCount[i];
+    ptr->pQueuePriorities = &queuePriopity;
+    ptr->pNext = 0;
+  }
+
+  // Device features
+  VkPhysicalDeviceFeatures deviceFeatures;
+  ogeMemorySet(&deviceFeatures, VK_FALSE, sizeof(deviceFeatures));
+  deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+  // Extensions
+  VkDeviceCreateInfo info = {
+    .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .flags = 0,
+
+    // Deprecated
+    .enabledLayerCount = 0,
+    .ppEnabledLayerNames = 0,
+
+    .enabledExtensionCount = REQUIRED_DEVICE_EXTENSIONS_COUNT,
+    .ppEnabledExtensionNames = s_ppRequiredDeviceExtensions,
+
+    .pEnabledFeatures = &deviceFeatures,
+
+    .queueCreateInfoCount = queueToCreateCount,
+    .pQueueCreateInfos = pQueueCreateInfos,
+
+    .pNext = 0,
+  };
+
+  // Creation
+  VkResult result = vkCreateDevice(
+    s_rendererState.physicalDevice, &info,
+    s_rendererState.pAllocator, &s_rendererState.logicalDevice);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan logical device: %d.", result);
+    return OGE_FALSE;
+  }
+
+  // Get queues
+  vkGetDeviceQueue(
+    s_rendererState.logicalDevice,
+    s_rendererState.queueFamilyIndicies.graphics,
+    0, &s_rendererState.graphicsQueue);
+
+  vkGetDeviceQueue(
+    s_rendererState.logicalDevice,
+    s_rendererState.queueFamilyIndicies.transfer,
+    0, &s_rendererState.transferQueue);
+
+  vkGetDeviceQueue(
+    s_rendererState.logicalDevice,
+    s_rendererState.queueFamilyIndicies.compute,
+    0, &s_rendererState.computeQueue);
+
+  vkGetDeviceQueue(
+    s_rendererState.logicalDevice,
+    s_rendererState.queueFamilyIndicies.present,
+    0, &s_rendererState.presentQueue);
+  OGE_TRACE("Vulkan queues obtained.");
+  
+  return OGE_TRUE;
 }
 
 b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
@@ -273,6 +429,7 @@ b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
 
   if (!createSurface()) { return OGE_FALSE; }
   if (!selectPhysicalDevice()) { return OGE_FALSE; }
+  if (!createLogicalDevice()) { return OGE_FALSE; }
 
   s_rendererState.initialized = OGE_TRUE;
   OGE_TRACE("Renderer initialized.");
@@ -286,6 +443,8 @@ void ogeRendererTerminate() {
   }
 
   OGE_TRACE("Terminating Vulkan renderer.");
+
+  vkDestroyDevice(s_rendererState.logicalDevice, s_rendererState.pAllocator);
 
   vkDestroySurfaceKHR(s_rendererState.instance,
                       s_rendererState.surface,

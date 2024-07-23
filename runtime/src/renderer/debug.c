@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <vulkan/vulkan.h>
 
 #include "oge/renderer/debug.h"
@@ -31,5 +33,23 @@ void vkDestroyDebugUtilsMessengerEXT(
   if (func) {
     func(instance, debugMessenger, pAllocator);
   }
+}
+
+b8 ogeIsValidationLayerSupported(const char *pLayerName) {
+  OGE_TRACE("Checking Vulkan validation layer support.");
+  u32 layerCount;
+  const VkResult result = vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+  VkLayerProperties pLayerProperties[layerCount];
+  vkEnumerateInstanceLayerProperties(&layerCount, pLayerProperties);
+
+  for (u32 i = 0; i < layerCount; ++i) {
+    if (strcmp(pLayerName, pLayerProperties[i].layerName) == 0) {
+      OGE_INFO("Vulkan validation layer is enabled.");
+      return OGE_TRUE;
+    }
+  }
+
+  OGE_ERROR("Vulkan validation layer isn't supported.");
+  return OGE_FALSE;
 }
 

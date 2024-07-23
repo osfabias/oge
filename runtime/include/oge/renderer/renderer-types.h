@@ -13,9 +13,9 @@ typedef struct OgeQueueFamilyIndicies {
 } OgeQueueFamilyIndicies;
 
 typedef struct OgeSwapchainSupport {
-  VkSurfaceCapabilitiesKHR  surfaceCapabilities;
-  u32                       formatCount;
-  VkSurfaceFormatKHR       *pFormats;
-  u32                       presentModeCount;
-  VkPresentModeKHR         *pPresentModes;
+  VkSurfaceCapabilitiesKHR surfaceCapabilities;
+  u32                      formatCount;
+  VkSurfaceFormatKHR       pFormats[128];
+  u32                      presentModeCount;
+  VkPresentModeKHR         pPresentModes[16];
 } OgeSwapchainSupport;

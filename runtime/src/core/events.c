@@ -21,25 +21,11 @@ void ogeEventsInit() {
   ogeMemorySet(s_eventsState.pDArrayCallbacks, 0, sizeof(s_eventsState));
   s_eventsState.initialized = OGE_TRUE;
 
-  #ifdef OGE_DEBUG
-  // Allocating so much darrays emits a lot of unwanted trace log
-  // messages in debug build, so we are disabling trace messages
-  const OgeLogLevel logLevel = ogeLoggingGetLevel();
-  if (logLevel == OGE_LOG_LEVEL_TRACE) {
-    ogeLoggingSetLevel(OGE_LOG_LEVEL_INFO);
-  }
-  #endif
-
   // Allocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
     s_eventsState.pDArrayCallbacks[i] =
       ogeDArrayAllocate(2, sizeof(OgeEventCallback));
   }
-
-  #ifdef OGE_DEBUG
-  ogeLoggingSetLevel(logLevel);
-  OGE_TRACE("Allocated %d DArrays for event callbacks.", MAX_EVENT_CODES);
-  #endif
 
   OGE_INFO("Events system initialized.");
 }
@@ -52,24 +38,10 @@ void ogeEventsTerminate() {
 
   s_eventsState.initialized = OGE_FALSE;
 
-  #ifdef OGE_DEBUG
-  // Deallocating darrays emits a lot of unwanted trace log
-  // messages in debug build, so we are disabling trace messages
-  const OgeLogLevel logLevel = ogeLoggingGetLevel();
-  if (logLevel == OGE_LOG_LEVEL_TRACE) {
-    ogeLoggingSetLevel(OGE_LOG_LEVEL_INFO);
-  }
-  #endif
-
   // Deallocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
     ogeDArrayDeallocate(s_eventsState.pDArrayCallbacks[i]);
   }
-
-  #ifdef OGE_DEBUG
-  ogeLoggingSetLevel(logLevel);
-  OGE_TRACE("Deallocated %d DArrays for event callbacks.", MAX_EVENT_CODES);
-  #endif
 
   OGE_INFO("Events system terminated.");
 }

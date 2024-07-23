@@ -6,6 +6,7 @@
 #include "oge/renderer/querries.h"
 #include "oge/renderer/renderer-types.h"
 
+// TODO: improve querry script 
 void ogeQuerryQueueFamilyIndicies(
   VkPhysicalDevice device,
   VkSurfaceKHR surface,
@@ -26,37 +27,32 @@ void ogeQuerryQueueFamilyIndicies(
   vkGetPhysicalDeviceQueueFamilyProperties(
     device, &queueFamilyCount, familyProperties);
 
-  u8 minScore = 255, score;
+  u8 minScore = 255;
   for (u32 i = 0; i < queueFamilyCount; ++i) {
-    score = 0;
-
     // Graphics queue
-    if (familyProperties[i].queueFlags &
-        VK_QUEUE_GRAPHICS_BIT) {
+    if (pQueueFamilyIndicies->graphics == -1 &&
+       (familyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
       pQueueFamilyIndicies->graphics = i;
-      ++score;
-    }
-
-    // Compute queue
-    if (familyProperties[i].queueFlags &
-        VK_QUEUE_COMPUTE_BIT) {
-      pQueueFamilyIndicies->compute = i;
-      ++score;
+      continue;
     }
 
     // Transfer queue
-    // NOTE: We want the transfer queue to be separated from
-    // the other queues, so a family with the least score is
-    // our choise
-    if (familyProperties[i].queueFlags &
-        VK_QUEUE_TRANSFER_BIT) {
-      if (score <= minScore) {
+    if (pQueueFamilyIndicies->transfer == -1 &&
+       (familyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT)) {
         pQueueFamilyIndicies->transfer = i;
-        score = minScore;
-      }
+      continue;
+    }
+
+    // Compute queue
+    if (pQueueFamilyIndicies->compute == -1 &&
+       (familyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
+      pQueueFamilyIndicies->compute = i;
+      continue;
     }
 
     // Present queue
+    if (pQueueFamilyIndicies->present != -1) { continue; }
+
     VkBool32 isPresentSupported = VK_FALSE;
     vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface,
                                          &isPresentSupported);
@@ -72,13 +68,6 @@ void ogeQuerrySwapchainSupport(
   VkSurfaceKHR surface,
   OgeSwapchainSupport *pSwapchainSupport) {
 
-  OGE_ASSERT(!pSwapchainSupport->pFormats,
-             "querrySwapchainSupport(): pSwapchainSupport->pFormats must be a NULL value.");
-
-  OGE_ASSERT(!pSwapchainSupport->pPresentModes,
-             "querrySwapchainSupport(): pSwapchainSupport->pPresentModes must be a NULL value.");
-
-
   // Surface capabilities
   VkSurfaceCapabilitiesKHR surfaceCapabilities; vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     device, surface, &pSwapchainSupport->surfaceCapabilities);
@@ -88,9 +77,6 @@ void ogeQuerrySwapchainSupport(
     device, surface, &pSwapchainSupport->formatCount, 0);
 
   if (pSwapchainSupport->formatCount != 0) {
-    pSwapchainSupport->pFormats =
-      ogeAllocate(pSwapchainSupport->formatCount * sizeof(VkSurfaceFormatKHR), 
-                  OGE_MEMORY_TAG_ARRAY);
     vkGetPhysicalDeviceSurfaceFormatsKHR(
       device, surface, &pSwapchainSupport->formatCount, 
       pSwapchainSupport->pFormats);
@@ -104,10 +90,6 @@ void ogeQuerrySwapchainSupport(
     vkGetPhysicalDeviceSurfacePresentModesKHR(
       device, surface, &pSwapchainSupport->presentModeCount, 0);
 
-    pSwapchainSupport->pPresentModes =
-      ogeAllocate(
-        pSwapchainSupport->presentModeCount * sizeof(VkPresentModeKHR),
-        OGE_MEMORY_TAG_ARRAY);
     vkGetPhysicalDeviceSurfacePresentModesKHR(
       device, surface, &pSwapchainSupport->presentModeCount,
       pSwapchainSupport->pPresentModes);
