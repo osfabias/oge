@@ -6,10 +6,10 @@ OgeLoggingInitInfo loggingInitInfo = {
   .pFileName = "logs.txt",
 };
 
-OgePlatformInitInfo platformInitInfo = {
+OplInitInfo oplInitInfo = {
   .pApplicationName = "OGE application",
-  .width            = 1280,
-  .height           = 720,
+  .surfaceWidth     = 1280,
+  .surfaceHeight    = 720,
 };
 
 OgeRendererInitInfo rendererInitInfo = {
@@ -19,7 +19,7 @@ OgeRendererInitInfo rendererInitInfo = {
 
 OgeInitInfo ogeInitInfo = {
   .pLoggingInitInfo  = &loggingInitInfo,
-  .pPlatformInitInfo = &platformInitInfo,
+  .pOplInitInfo = &oplInitInfo,
   .pRendererInitInfo = &rendererInitInfo,
 };
 

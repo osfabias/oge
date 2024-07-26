@@ -1,8 +1,9 @@
 #pragma once
 
+#include "opl/opl.h"
+
 #include "oge/defines.h"
 #include "oge/core/logging.h"
-#include "oge/core/platform.h"
 #include "oge/renderer/renderer.h"
 
 // forward decl for struct from oge/core/application.h
@@ -22,8 +23,8 @@ typedef struct OgeInitInfo OgeInitInfo;
  *  initialization info.
  */
 struct OgeInitInfo {
+  OplInitInfo *pOplInitInfo;
   OgeLoggingInitInfo  *pLoggingInitInfo;
-  OgePlatformInitInfo *pPlatformInitInfo;
   OgeRendererInitInfo *pRendererInitInfo;
 };
 

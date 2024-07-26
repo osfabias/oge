@@ -1,9 +1,12 @@
 project(oge VERSION 0.0.1)
 
-# Find packages
+# ~ build libraries
+add_subdirectory(lib)
+
+# ~ find packages
 find_package(Vulkan REQUIRED)
 
-# Setup "oge" library target
+# ~ target setup
 add_library(oge SHARED
   ./src/core/input.c
   ./src/core/engine.c
@@ -26,36 +29,9 @@ target_compile_definitions(oge PRIVATE
   OGE_VERSION_MINOR=${OGE_VERSION_MINOR}
   OGE_VERSION_PATCH=${OGE_VERSION_PATCH}
 )
-target_link_libraries(oge PUBLIC Vulkan::Vulkan)
+target_link_libraries(oge PUBLIC opl Vulkan::Vulkan)
 
-# Add platform source files
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  message(FATAL_ERROR "Windows platform not implemented.")
-  # Add source files here instead of "message()" call
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  message(FATAL_ERROR "Linux platform not implemented.")
-  # Add source files here instead of "message()" call
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MACOS
-  target_sources(oge PRIVATE
-    ./src/platform/platform_macos.m
-  )
-
-  find_library(COCOA_LIBRARY Cocoa)
-  find_library(QUARTZ_LIBRARY QuartzCore)
-  target_link_libraries(oge PUBLIC
-    ${COCOA_LIBRARY}
-    ${QUARTZ_LIBRARY}
-  )
-
-  target_compile_definitions(oge PUBLIC
-    OGE_METAL_ENABLED
-    OGE_VULKAN_ENABLED
-  )
-elseif()
-  message(FATAL_ERROR "Unknown platform.")
-endif()
-
-# Add compile definitions
+# ~ add compile definitions
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(oge PRIVATE OGE_DEBUG)
 else()

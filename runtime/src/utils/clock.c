@@ -1,13 +1,14 @@
+#include <opl/opl.h>
+
 #include "oge/utils/clock.h"
-#include "oge/core/platform.h"
 
 void ogeClockStart(OgeClock *clock) {
-  clock->startTime = ogePlatformGetTime();
+  clock->startTime = oplGetTime();
   clock->elapsedTime = 0;
   clock->endTime = clock->startTime;
 }
 
 void ogeClockStop(OgeClock *clock) {
-  clock->endTime = ogePlatformGetTime();
+  clock->endTime = oplGetTime();
   clock->elapsedTime = clock->endTime - clock->startTime;
 }

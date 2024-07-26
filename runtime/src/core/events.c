@@ -18,7 +18,7 @@ void ogeEventsInit() {
     return;
   }
 
-  ogeMemorySet(s_eventsState.pDArrayCallbacks, 0, sizeof(s_eventsState));
+  ogeMemSet(s_eventsState.pDArrayCallbacks, 0, sizeof(s_eventsState));
   s_eventsState.initialized = OGE_TRUE;
 
   // Allocate DArray for each event code

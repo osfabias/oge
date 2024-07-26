@@ -1,8 +1,9 @@
+#include "opl/opl.h"
+
 #include "oge/core/input.h"
 #include "oge/core/engine.h"
 #include "oge/core/events.h"
 #include "oge/core/logging.h"
-#include "oge/core/platform.h"
 #include "oge/core/application.h"
 #include "oge/renderer/renderer.h"
 
@@ -15,12 +16,14 @@ OGE_INLINE b8 initSystems() {
   const OgeInitInfo initInfo = *s_ogeState.pApplication->pOgeInitInfo;
 
   if(!ogeLoggingInit(initInfo.pLoggingInitInfo)) {
-    return OGE_FALSE;
+    OGE_ERROR("Failed to initizlize logging system.");
   }
 
-  if (!ogePlatformInit(initInfo.pPlatformInitInfo)) {
+  if (!oplInit(initInfo.pOplInitInfo)) {
+    OGE_ERROR("Failed to initialize OPL.");
     return OGE_FALSE;
   }
+  OGE_INFO("OPL initialized.");
 
   ogeEventsInit();
   ogeInputInit();
@@ -37,7 +40,7 @@ OGE_INLINE void terminateSystems() {
   ogeRendererTerminate();
   ogeInputTerminate();
   ogeEventsTerminate();
-  ogePlatformTerminate();
+  oplTerminate();
   ogeLoggingTerminate();
 }
 
@@ -68,8 +71,8 @@ b8 ogeInit(const OgeApplication *pApplication) {
 
 void ogeRun() {
   OGE_INFO("Entering main cycle.");
-  while (!ogePlatformTerminateRequested()) {
-    ogePlatformPumpMessages();
+  while (!oplShouldTerminate()) {
+    oplPumpMessages();
 
     if (!s_ogeState.pApplication->pfnUpdate(s_ogeState.pApplication)) {
       OGE_ERROR("Failed on OGE application update function call.");

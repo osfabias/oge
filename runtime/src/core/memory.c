@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "opl/opl.h"
+
 #include "oge/core/memory.h"
 #include "oge/core/logging.h"
-#include "oge/core/platform.h"
 #include "oge/core/assertion.h"
 
 #ifdef OGE_DEBUG
-
 #define MAX_DEBUG_INFO_LENGTH 8192
 
 #define MEMORY_HTOS(ptr) \
@@ -40,41 +40,41 @@ char* pMemoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
   "SCENE",
 };
 
+struct {
+  b8 initialized;
+  u64 totalUsage; 
+  u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
+} s_state = { .initialized = OGE_FALSE };
 #endif
 
 
-struct {
-  b8 initialized;
-  #ifdef OGE_DEBUG
-  u64 totalUsage; 
-  u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
-  #endif
-} s_state = { .initialized = OGE_FALSE };
-
-
 void ogeMemoryInit() {
+#ifdef OGE_DEBUG
   if (s_state.initialized) { 
     OGE_WARN("Trying to initialize memory system while it's already initialized.");
     return;
   }
 
-  ogePlatformMemorySet(&s_state, 0, sizeof(s_state));
+  oplMemSet(&s_state, 0, sizeof(s_state));
   s_state.initialized = OGE_TRUE;
 
   OGE_INFO("Memory system initialized.");
+#endif
 }
 
 void ogeMemoryTerminate() {
+#ifdef OGE_DEBUG
   if (!s_state.initialized) {
     OGE_WARN("Trying to termiate memory system while it's already terminated.");
     return;
   }
 
   OGE_INFO("Memory system terminated.");
+#endif
 }
 
-void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
-  #ifdef OGE_DEBUG
+#ifdef OGE_DEBUG
+void* ogeAlloc(u64 size, OgeMemoryTag memoryTag) {
   if (memoryTag == OGE_MEMORY_TAG_UNKNOWN) {
     OGE_WARN("ogeAllocate called with OGE_MEMORY_TAG_UNKNOWN. Set memory tag to different.");
   }
@@ -84,7 +84,7 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   }
   u64 fullSize = sizeof(OgeMemoryDebugHeader) + size;
 
-  OgeMemoryDebugHeader *pBlockHeader = ogePlatformAllocate(fullSize, OGE_FALSE);
+  OgeMemoryDebugHeader *pBlockHeader = oplAlloc(fullSize);
   pBlockHeader->size = size;
   pBlockHeader->tag  = memoryTag;
 
@@ -92,58 +92,30 @@ void* ogeAllocate(u64 size, OgeMemoryTag memoryTag) {
   s_state.perTagUsage[memoryTag] += size;
   
   return MEMORY_HTOS(pBlockHeader);
-  #else
-  return ogePlatformAllocate(size, OGE_FALSE);
-  #endif
 }
 
-void* ogeReallocate(void *pBlock, u64 size) {
-  #ifdef OGE_DEBUG
+void* ogeRealloc(void *pBlock, u64 size) {
   OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
   s_state.totalUsage -= pBlockHeader->size - size;
   s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size - size;
 
-  pBlockHeader = ogePlatformReallocate(pBlockHeader,
-                                       sizeof(OgeMemoryDebugHeader) + size, OGE_FALSE);
-
+  pBlockHeader = oplRealloc(pBlockHeader,
+                            sizeof(OgeMemoryDebugHeader) + size);
   pBlockHeader->size = size;
 
-
   return MEMORY_HTOS(pBlockHeader);
-  #else
-  return ogePlatformReallocate(pBlock, size, OGE_FALSE);
-  #endif
 }
 
-void ogeDeallocate(void *pBlock) {
-  #ifdef OGE_DEBUG
+void ogeFree(void *pBlock) {
   const OgeMemoryDebugHeader *pBlockHeader = MEMORY_STOH(pBlock);
 
   s_state.totalUsage -= pBlockHeader->size;
   s_state.perTagUsage[pBlockHeader->tag] -= pBlockHeader->size;
 
-  ogePlatformDeallocate(MEMORY_STOH(pBlock), OGE_FALSE);
-  #else
-  ogePlatformDeallocate(pBlock, OGE_FALSE);
-  #endif
+  oplFree(MEMORY_STOH(pBlock));
 }
-
-void ogeMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size) {
-  ogePlatformMemoryCopy(pDstBlock, pSrcBlock, size);
-}
-
-void ogeMemorySet(void *block, i32 value, u64 size) {
-  ogePlatformMemorySet(block, value, size);
-}
-
-void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size) {
-  ogePlatformMemoryMove(pDstBlock, pSrcBlock, size);
-}
-
-i32 ogeMemoryCompare(const void *pBlock1, const void *pBlock2, u64 size) {
-  return ogePlatformMemoryCompare(pBlock1, pBlock2, size);
-}
+#endif
 
 const char* ogeMemoryGetDebugInfo() {
   #ifdef OGE_DEBUG
@@ -151,7 +123,7 @@ const char* ogeMemoryGetDebugInfo() {
   const u32 mib = 1024 * 1024;
   const u32 kib = 1024;
 
-  ogeMemorySet(pMemoryDebugStr, 0, sizeof(pMemoryDebugStr));
+  ogeMemSet(pMemoryDebugStr, 0, sizeof(pMemoryDebugStr));
   snprintf(pMemoryDebugStr, MAX_DEBUG_INFO_LENGTH, "Memory usage:\n");
   u16 offset = strlen(pMemoryDebugStr);
 

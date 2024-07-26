@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include <opl/opl.h>
+
+#include "oge/core/memory.h"
 #include "oge/core/logging.h"
-#include "oge/core/platform.h"
 
 struct {
   b8 initialized;
@@ -43,12 +45,12 @@ void ogeLog(OgeLogLevel level, const char *pMessage, ...) {
     "TRACE\0", "INFO\0", "WARN\0", "ERROR\0", "FATAL\0",
   };
 
-  // Technically imposes a 4k character limit on a single log entry, but...
-  // DON'T DO THAT!
+  // Technically imposes a 4k character limit on a single
+  // log entry, but... DON'T DO THAT!
   char outMessage[4096];
   char formattedMessage[4096];
-  ogePlatformMemorySet(outMessage, 0, sizeof(outMessage));
-  ogePlatformMemorySet(formattedMessage, 0, sizeof(formattedMessage));
+  ogeMemSet(outMessage, 0, sizeof(outMessage));
+  ogeMemSet(formattedMessage, 0, sizeof(formattedMessage));
 
   // Format original message.
   // NOTE: Oddly enough, MS's headers override the GCC/Clang va_list type
@@ -64,5 +66,5 @@ void ogeLog(OgeLogLevel level, const char *pMessage, ...) {
   sprintf(outMessage, "%s\t | %s\n", levelPrefixes[level], formattedMessage);
 
   // Pass along to console consumers.
-  ogePlatformConsoleWrite(outMessage, level);
+  oplConsoleWrite(outMessage, 1 + level);
 }

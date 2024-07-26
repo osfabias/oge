@@ -3,16 +3,16 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include "oge/core/memory.h"
+#include <opl/opl.h>
+
 #include "oge/core/logging.h"
-#include "oge/core/platform.h"
-#include "oge/core/assertion.h"
 #include "oge/containers/darray.h"
 
 #ifdef OGE_DEBUG
 #include "oge/renderer/debug.h"
 #endif
 
+#include "oge/core/memory.h"
 #include "oge/renderer/querries.h"
 #include "oge/renderer/renderer.h"
 #include "oge/renderer/renderer-types.h"
@@ -24,6 +24,7 @@ struct {
   VkInstance instance;
 
   VkSurfaceKHR surface;
+  VkSwapchainKHR swapchain;
   OgeSwapchainSupport swapchainSupport;
 
   VkPhysicalDevice physicalDevice;
@@ -111,18 +112,20 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
     .pApplicationInfo        = &applicationInfo,
   };
 
-  u16 extensionCount;
-  ogePlatformGetRequiredVkExtensions(&extensionCount);
-  const char **ppExtensions =
+  u16 extensionCount = oplVkExtensions(0);
+  const char* ppExtensionNames[extensionCount];
+  oplVkExtensions(ppExtensionNames);
+
+  const char* *ppExtensions =
     ogeDArrayAllocate(extensionCount, sizeof(char*));
   ppExtensions =
-    ogeDArrayExtend(ppExtensions,
-                    ogePlatformGetRequiredVkExtensions(0),
-                    extensionCount);
+    ogeDArrayExtend(ppExtensions, ppExtensionNames, extensionCount);
 
   #ifdef OGE_PLATFORM_APPLE
-  const char *pPortabilityExtensionName = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-  ppExtensions = ogeDArrayAppend(ppExtensions, &pPortabilityExtensionName);
+  const char *pPortabilityExtensionName = 
+    VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+  ppExtensions =
+    ogeDArrayAppend(ppExtensions, &pPortabilityExtensionName);
 
   info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   #endif
@@ -164,7 +167,7 @@ b8 createSurface() {
   OGE_TRACE("Creating Vulkan surface.");
 
   const VkResult result =
-    ogePlatformCreateVkSurface(s_rendererState.instance,
+    oplCreateVkSurface(s_rendererState.instance,
       s_rendererState.pAllocator, &s_rendererState.surface);
 
   if (result != VK_SUCCESS) {
@@ -356,10 +359,10 @@ b8 createLogicalDevice() {
 
   // Device features
   VkPhysicalDeviceFeatures deviceFeatures;
-  ogeMemorySet(&deviceFeatures, VK_FALSE, sizeof(deviceFeatures));
+  ogeMemSet(&deviceFeatures, VK_FALSE, sizeof(deviceFeatures));
   deviceFeatures.samplerAnisotropy = VK_TRUE;
 
-  // Extensions
+  // Creation
   VkDeviceCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
     .flags = 0,
@@ -379,7 +382,6 @@ b8 createLogicalDevice() {
     .pNext = 0,
   };
 
-  // Creation
   VkResult result = vkCreateDevice(
     s_rendererState.physicalDevice, &info,
     s_rendererState.pAllocator, &s_rendererState.logicalDevice);
@@ -410,6 +412,46 @@ b8 createLogicalDevice() {
     0, &s_rendererState.presentQueue);
   OGE_TRACE("Vulkan queues obtained.");
   
+  return OGE_TRUE;
+}
+
+b8 createSwapchain() {
+
+  // Creation
+  VkSwapchainCreateInfoKHR info = {
+    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .pNext = 0,
+    .flags = 0,
+    .surface = s_rendererState.surface,
+    .minImageCount = 1,
+
+    .imageFormat = 0,
+    .imageColorSpace = 0,
+    .imageExtent = 0,
+    .imageArrayLayers = 0,
+    .imageUsage = 0,
+    .imageSharingMode = 0,
+
+    .queueFamilyIndexCount = 0,
+    .pQueueFamilyIndices = 0,
+
+    .preTransform = 0,
+    .compositeAlpha = 0,
+
+    .presentMode = 0,
+    .clipped = 0,
+    
+    .oldSwapchain = VK_NULL_HANDLE,
+  };
+
+  VkResult result = vkCreateSwapchainKHR(
+    s_rendererState.logicalDevice, &info,
+    s_rendererState.pAllocator, &s_rendererState.swapchain);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan swapchain.");
+    return OGE_FALSE;
+  }
+  OGE_TRACE("Vulkan swapchain created.");
   return OGE_TRUE;
 }
 

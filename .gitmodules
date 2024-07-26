@@ -1,0 +1,3 @@
+[submodule "runtime/lib/opl"]
+	path = runtime/lib/opl
+	url = git@github.com:osfabias/opl.git

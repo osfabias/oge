@@ -1,5 +1,7 @@
 #pragma once
 
+#include "opl/opl.h"
+
 #include "oge/defines.h"
 
 typedef enum OgeMemoryTag {
@@ -25,14 +27,33 @@ typedef enum OgeMemoryTag {
 void ogeMemoryInit();
 void ogeMemoryTerminate();
 
-OGE_API void* ogeAllocate(u64 size, OgeMemoryTag memoryTag);
-OGE_API void* ogeReallocate(void *pBlock, u64 size);
-OGE_API void  ogeDeallocate(void *pBlock);
+#ifdef OGE_DEBUG
+OGE_API void* ogeAlloc(u64 size, OgeMemoryTag memoryTag);
+OGE_API void* ogeRealloc(void *pBlock, u64 size);
+OGE_API void  ogeFree(void *pBlock);
+#else
+#define ogeAlloc(size, memorryTag) \
+  oplAlloc(size)
 
-OGE_API void ogeMemoryCopy(void *pDstBlock, const void *pSrcBlock, u64 size);
-OGE_API void ogeMemorySet(void *pBlock, i32 value, u64 size);
-OGE_API void ogeMemoryMove(void *pDstBlock, const void *pSrcBlock, u64 size);
-OGE_API i32  ogeMemoryCompare(const void *pBlock1, const void *pBlock2, u64 size);
+#define ogeRealloc(pBlock, size) \
+  oplRealloc(pBlock, size)
+
+#define ogeFree(pBlock) \
+  oplFree(pBlock)
+#endif
+
+#define ogeMemCpy(pDstBlock, pSrcBlock, size) \
+  oplMemCpy(pDstBlock, pSrcBlock, size)
+
+#define ogeMemSet(pBlock, value, size) \
+  oplMemSet(pBlock, value, size)
+
+#define ogeMemMove(pDstBlock, pSrcBlock, size) \
+  oplMemMove(pDstBlock, pSrcBlock, size)
+
+#define ogeMemCmp(pBlock1, pBlock2, size) \
+  oplMemCmp(pBlock1, pBlock2, size)
 
 OGE_API const char* ogeMemoryGetDebugInfo();
 OGE_API const char* ogeMemoryTagToString(OgeMemoryTag memoryTag);
+
