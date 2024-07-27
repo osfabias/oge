@@ -12,6 +12,7 @@ Currently supported platforms:
 ```shell
 git clone git@github.com:osfabias/oge.git
 cd oge
+git submodule init
 git submodule update
 
 mkdir build
