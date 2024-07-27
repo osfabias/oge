@@ -19,6 +19,7 @@ mkdir build
 cd build
 cmake .. # add -DCMAKE_BUILD_TYPE=Debug for debug build
 cmake --build .
+./bin/example
 ```
 You're done!
 
