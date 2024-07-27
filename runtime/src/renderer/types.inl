@@ -5,17 +5,17 @@
 
 #include "oge/defines.h"
 
-typedef struct OgeQueueFamilyIndicies {
+typedef struct queueFamilyIndicies {
   u32 graphics;
   u32 transfer;
   u32 compute;
   u32 present;
-} OgeQueueFamilyIndicies;
+} queueFamilyIndicies;
 
-typedef struct OgeSwapchainSupport {
+typedef struct swapchainSupport {
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
   u32                      formatCount;
   VkSurfaceFormatKHR       pFormats[128];
   u32                      presentModeCount;
   VkPresentModeKHR         pPresentModes[16];
-} OgeSwapchainSupport;
+} swapchainSupport;

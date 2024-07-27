@@ -4,6 +4,7 @@
 #include "oge/core/input.h"
 #include "oge/core/memory.h"
 #include "oge/core/logging.h"
+#include "oge/core/assertion.h"
 
 struct {
   b8                      initialized;
@@ -14,10 +15,10 @@ struct {
 } s_inputState = { .initialized = OGE_FALSE };
 
 void ogeInputInit() {
-  if (s_inputState.initialized) {
-    OGE_WARN("Trying to initialize input system while it's already initialized.");
-    return;
-  }
+  OGE_ASSERT(
+    !s_inputState.initialized,
+    "Trying to initialize input system while it's already initialized."
+  );
 
   ogeMemSet(&s_inputState, 0, sizeof(s_inputState));
   s_inputState.initialized = OGE_TRUE;
@@ -28,10 +29,10 @@ void ogeInputInit() {
 }
 
 void ogeInputTerminate() {
-  if (!s_inputState.initialized) {
-    OGE_WARN("Trying to terminate input system while it's already terminated.");
-    return;
-  }
+  OGE_ASSERT(
+    s_inputState.initialized,
+    "Trying to terminate input system while it's already terminated."
+  );
 
   s_inputState.initialized = OGE_FALSE;
 

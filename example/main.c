@@ -1,9 +1,10 @@
 #include "oge/oge.h"
+#include "oge/renderer/renderer.h"
 
 // OGE configuration
 const OgeLoggingInitInfo loggingInitInfo = {
   .logLevel  = OGE_LOG_LEVEL_TRACE,
-  .fileName = "logs.txt",
+  .fileName  = "logs.txt",
 };
 
 const OplInitInfo oplInitInfo = {
@@ -14,12 +15,12 @@ const OplInitInfo oplInitInfo = {
 
 const OgeRendererInitInfo rendererInitInfo = {
   .applicationVersion = OGE_MAKE_VERSION(0, 0, 1),
-  .pApplicationName = "OGE application",
+  .applicationName    = "OGE application",
 };
 
 const OgeInitInfo ogeInitInfo = {
   .loggingInitInfo  = &loggingInitInfo,
-  .oplInitInfo = &oplInitInfo,
+  .oplInitInfo      = &oplInitInfo,
   .rendererInitInfo = &rendererInitInfo,
 };
 
@@ -41,10 +42,10 @@ void applicationTerminate(void *pState) { }
 // Application create function
 b8 ogeApplicationCreate(OgeApplication *pApplication) {
   pApplication->ogeInitInfo = &ogeInitInfo;
-  pApplication->init      = applicationInit;
-  pApplication->update    = applicationUpdate;
-  pApplication->render    = applicationRender;
-  pApplication->terminate = applicationTerminate;
+  pApplication->init        = applicationInit;
+  pApplication->update      = applicationUpdate;
+  pApplication->render      = applicationRender;
+  pApplication->terminate   = applicationTerminate;
 
   return OGE_TRUE;
 }

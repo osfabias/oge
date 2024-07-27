@@ -14,8 +14,6 @@ add_library(oge SHARED
   ./src/core/events.c
   ./src/core/logging.c
 
-  ./src/renderer/debug.c
-  ./src/renderer/querries.c
   ./src/renderer/renderer.c
 
   ./src/utils/clock.c

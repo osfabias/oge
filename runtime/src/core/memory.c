@@ -39,37 +39,37 @@ char* s_memoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
   "ENTITY NODE",
   "SCENE",
 };
+#endif
 
 struct {
   b8 initialized;
+#ifdef OGE_DEBUG
   u64 totalUsage; 
   u64 perTagUsage[OGE_MEMORY_TAG_MAX_ENUM];
-} s_state = { .initialized = OGE_FALSE };
 #endif
+} s_memoryState = { .initialized = OGE_FALSE };
 
 void ogeMemoryInit() {
-#ifdef OGE_DEBUG
-  if (s_state.initialized) { 
-    OGE_WARN("Trying to initialize memory system while it's already initialized.");
-    return;
-  }
+  OGE_ASSERT(
+    !s_memoryState.initialized,
+    "Trying to initialize memory system while it's already initialized."
+  );
 
-  oplMemSet(&s_state, 0, sizeof(s_state));
-  s_state.initialized = OGE_TRUE;
+#ifdef OGE_DEBUG
+  oplMemSet(&s_memoryState, 0, sizeof(s_memoryState));
+  s_memoryState.initialized = OGE_TRUE;
+#endif
 
   OGE_INFO("Memory system initialized.");
-#endif
 }
 
 void ogeMemoryTerminate() {
-#ifdef OGE_DEBUG
-  if (!s_state.initialized) {
-    OGE_WARN("Trying to termiate memory system while it's already terminated.");
-    return;
-  }
+  OGE_ASSERT(
+    s_memoryState.initialized,
+    "Trying to initialize memory system while it's already initialized."
+  );
 
   OGE_INFO("Memory system terminated.");
-#endif
 }
 
 #ifdef OGE_DEBUG
@@ -87,8 +87,8 @@ void* ogeAlloc(u64 size, OgeMemoryTag memoryTag) {
   blockHeader->size = size;
   blockHeader->tag  = memoryTag;
 
-  s_state.totalUsage += size;
-  s_state.perTagUsage[memoryTag] += size;
+  s_memoryState.totalUsage += size;
+  s_memoryState.perTagUsage[memoryTag] += size;
   
   return MEMORY_HTOS(blockHeader);
 }
@@ -96,8 +96,8 @@ void* ogeAlloc(u64 size, OgeMemoryTag memoryTag) {
 void* ogeRealloc(void *block, u64 size) {
   OgeMemoryDebugHeader *blockHeader = MEMORY_STOH(block);
 
-  s_state.totalUsage -= blockHeader->size - size;
-  s_state.perTagUsage[blockHeader->tag] -= blockHeader->size - size;
+  s_memoryState.totalUsage -= blockHeader->size - size;
+  s_memoryState.perTagUsage[blockHeader->tag] -= blockHeader->size - size;
 
   blockHeader = oplRealloc(blockHeader,
                             sizeof(OgeMemoryDebugHeader) + size);
@@ -109,8 +109,8 @@ void* ogeRealloc(void *block, u64 size) {
 void ogeFree(void *block) {
   const OgeMemoryDebugHeader *blockHeader = MEMORY_STOH(block);
 
-  s_state.totalUsage -= blockHeader->size;
-  s_state.perTagUsage[blockHeader->tag] -= blockHeader->size;
+  s_memoryState.totalUsage -= blockHeader->size;
+  s_memoryState.perTagUsage[blockHeader->tag] -= blockHeader->size;
 
   oplFree(MEMORY_STOH(block));
 }
@@ -131,7 +131,7 @@ const char* ogeMemoryGetDebugInfo() {
                "Memory debug info string is exceed the limit."); 
 
     char unit[4] = "Xib";
-    f64 amount = s_state.perTagUsage[i];
+    f64 amount = s_memoryState.perTagUsage[i];
     if (amount >= gib) {
       unit[0] = 'G';
       amount /= gib;

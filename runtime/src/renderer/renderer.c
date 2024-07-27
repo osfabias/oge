@@ -1,21 +1,23 @@
 #include <string.h>
 
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <opl/opl.h>
+#include <vulkan/vulkan_core.h>
 
+#include "oge/defines.h"
+#include "oge/core/memory.h"
 #include "oge/core/logging.h"
+#include "oge/core/assertion.h"
 #include "oge/containers/darray.h"
+#include "oge/renderer/renderer.h"
+
+#include "types.inl"
+#include "querries.inl"
 
 #ifdef OGE_DEBUG
-#include "oge/renderer/debug.h"
+#include "debug.inl"
 #endif
-
-#include "oge/core/memory.h"
-#include "oge/renderer/querries.h"
-#include "oge/renderer/renderer.h"
-#include "oge/renderer/renderer-types.h"
 
 // TODO: write custom allocators for vulkan
 struct {
@@ -25,19 +27,26 @@ struct {
 
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
-  OgeSwapchainSupport swapchainSupport;
+  swapchainSupport swapchainSupport;
+  VkFormat swapchainFormat;
+  VkExtent2D swapchainExtent;
+  u32 swapchainImageCount;
+  VkImage *swapchainImages;
+  VkImageView *swapchainImageViews;
 
   VkPhysicalDevice physicalDevice;
   VkPhysicalDeviceFeatures physicalDeviceFeatures;
   VkPhysicalDeviceProperties physicalDeviceProperties;
   VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
-  OgeQueueFamilyIndicies queueFamilyIndicies;
+  queueFamilyIndicies queueFamilyIndicies;
 
   VkDevice logicalDevice;
   VkQueue graphicsQueue;
   VkQueue transferQueue;
   VkQueue computeQueue;
   VkQueue presentQueue;
+
+  VkRenderPass renderPass;
 
   VkAllocationCallbacks *pAllocator;
   #ifdef OGE_DEBUG
@@ -48,7 +57,6 @@ struct {
 
   .pAllocator = 0, // temporary, while custom allocator isn't written
 };
-
 
 const char *s_ppRequiredDeviceExtensions[] = {
 #ifdef   OGE_PLATFORM_APPLE
@@ -92,24 +100,47 @@ void createDebugMessenger() {
 }
 #endif
 
-b8 createInstance(OgeRendererInitInfo *pInitInfo) {
+OGE_INLINE b8 isValidationLayerSupported(const char *pLayerName) {
+  OGE_TRACE("Checking Vulkan validation layer support.");
+
+  u32 layerCount;
+  const VkResult result = vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+  VkLayerProperties pLayerProperties[layerCount];
+  vkEnumerateInstanceLayerProperties(&layerCount, pLayerProperties);
+
+  for (u32 i = 0; i < layerCount; ++i) {
+    if (strcmp(pLayerName, pLayerProperties[i].layerName) == 0) {
+      OGE_INFO("Vulkan validation layer is enabled.");
+      return OGE_TRUE;
+    }
+  }
+
+  OGE_ERROR("Vulkan validation layer isn't supported.");
+  return OGE_FALSE;
+}
+
+/************************************************
+ *              creation functions              *
+ ************************************************/
+OGE_INLINE b8 createInstance(const OgeRendererInitInfo *pInitInfo) {
   VkApplicationInfo applicationInfo = {
     .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-    .pNext              = 0,
     .apiVersion         = VK_API_VERSION_1_3,
-    .pApplicationName   = pInitInfo->pApplicationName,
+    .pApplicationName   = pInitInfo->applicationName,
     .applicationVersion = pInitInfo->applicationVersion,
     .pEngineName        = "Osfabias Game Engine",
-    .engineVersion =
-      VK_MAKE_VERSION(OGE_VERSION_MAJOR, OGE_VERSION_MINOR,
-                      OGE_VERSION_PATCH),
+    .engineVersion      = VK_MAKE_VERSION(OGE_VERSION_MAJOR, OGE_VERSION_MINOR, 
+                                          OGE_VERSION_PATCH),
+    .pNext              = 0,
   };
 
   VkInstanceCreateInfo info = {
-    .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-    .pNext                   = 0,
-    .flags                   = 0,
-    .pApplicationInfo        = &applicationInfo,
+    .sType               = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+    .pNext               = 0,
+    .flags               = 0,
+    .pApplicationInfo    = &applicationInfo,
+    .enabledLayerCount   = 0,
+    .ppEnabledLayerNames = 0,
   };
 
   u16 extensionCount = oplVkExtensions(0);
@@ -133,24 +164,21 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
   #ifdef OGE_DEBUG
   const char *pValidationLayerName = "VK_LAYER_KHRONOS_validation";
 
-  if (ogeIsValidationLayerSupported(pValidationLayerName)) {
+  if (isValidationLayerSupported(pValidationLayerName)) {
     info.enabledLayerCount   = 1;
     info.ppEnabledLayerNames = &pValidationLayerName;
 
     const char *pDebugExtensionName = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     ppExtensions = ogeDArrayAppend(ppExtensions, &pDebugExtensionName);
   }
-  else {
-    info.enabledLayerCount   = 0;
-    info.ppEnabledLayerNames = 0;
-  }
   #endif
 
   info.enabledExtensionCount   = ogeDArrayLength(ppExtensions);
   info.ppEnabledExtensionNames = ppExtensions;
 
-  const VkResult result = vkCreateInstance(
-    &info, s_rendererState.pAllocator, &s_rendererState.instance);
+  const VkResult result = 
+    vkCreateInstance(&info, s_rendererState.pAllocator,
+                     &s_rendererState.instance);
 
   ogeDArrayFree(ppExtensions);
 
@@ -163,7 +191,7 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
   return OGE_TRUE;
 }
 
-b8 createSurface() {
+OGE_INLINE b8 createSurface() {
   OGE_TRACE("Creating Vulkan surface.");
 
   const VkResult result =
@@ -179,38 +207,26 @@ b8 createSurface() {
   return OGE_TRUE;
 }
 
-b8 isPhysicalDeviceSuitable(VkPhysicalDevice device) {
-  #ifdef OGE_DEBUG
-  VkPhysicalDeviceProperties deviceProperties;
-  vkGetPhysicalDeviceProperties(device, &deviceProperties);
-  #endif
-
-  OGE_TRACE("Checking GPU %s for suitability.",
-            deviceProperties.deviceName);
-
+OGE_INLINE b8 isGPUSuitable(VkPhysicalDevice device) {
   // Queue family indicies
-  OgeQueueFamilyIndicies queueFamilyIndicies;
-  ogeQuerryQueueFamilyIndicies(
+  queueFamilyIndicies queueFamilyIndicies;
+  querryQueueFamilyIndicies(
     device, s_rendererState.surface, &queueFamilyIndicies);
 
   if (queueFamilyIndicies.graphics == -1 ||
       queueFamilyIndicies.transfer == -1 ||
       queueFamilyIndicies.compute  == -1 ||
       queueFamilyIndicies.present  == -1) {
-    OGE_TRACE("GPU %s failed on queue family indicies check.",
-              deviceProperties.deviceName);
     return OGE_FALSE;
   }
 
   // Swapchain support
-  OgeSwapchainSupport swapchainSupport;
-  ogeQuerrySwapchainSupport(
+  swapchainSupport swapchainSupport;
+  querrySwapchainSupport(
     device, s_rendererState.surface, &swapchainSupport);
 
   if (swapchainSupport.formatCount      == 0 ||
       swapchainSupport.presentModeCount == 0) {
-    OGE_TRACE("GPU %s failed on swapchain support check.",
-              deviceProperties.deviceName);
     return OGE_FALSE;
   }
 
@@ -219,11 +235,7 @@ b8 isPhysicalDeviceSuitable(VkPhysicalDevice device) {
   vkEnumerateDeviceExtensionProperties(
     device, 0, &availableExtensionCount, 0);
 
-  if (availableExtensionCount == 0) {
-    OGE_TRACE("GPU %s failed on device extensions check.",
-              deviceProperties.deviceName);
-    return OGE_FALSE;
-  }
+  if (availableExtensionCount == 0) { return OGE_FALSE; }
 
   VkExtensionProperties pDeviceExtensions[availableExtensionCount]; 
   vkEnumerateDeviceExtensionProperties(
@@ -241,28 +253,26 @@ b8 isPhysicalDeviceSuitable(VkPhysicalDevice device) {
       }
     }
 
-    if (!extensionFound) {
-      OGE_TRACE("GPU %s failed on device extensions check.",
-                deviceProperties.deviceName);
-      return OGE_FALSE;
-    }
+    if (!extensionFound) { return OGE_FALSE; }
   }
 
   // Sampler anisotropy
   VkPhysicalDeviceFeatures deviceFeatures;
   vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-  if (!deviceFeatures.samplerAnisotropy) {
-    OGE_TRACE("GPU %s failed on device feature check.",
-              deviceProperties.deviceName);
-    return OGE_FALSE;
-  }
 
-  OGE_TRACE("GPU %s is suitable.",
-            deviceProperties.deviceName);
+  if (!deviceFeatures.samplerAnisotropy) { return OGE_FALSE; }
+
   return OGE_TRUE;
 }
 
-b8 selectPhysicalDevice() {
+// yo! bro, I don't think that requirements is the our way of things
+//
+// we need to get every feature we can and than use ALL OF EM!
+// if we were unable to find something - we just wouldn't use that
+//
+// but do wee really need these requirements if we are already
+// know which things are really necessery for engine to fire up?
+OGE_INLINE b8 selectGPU(/* requirements ? */) {
   OGE_TRACE("Selecting GPU.");
 
   u32 deviceCount = 0;
@@ -273,38 +283,38 @@ b8 selectPhysicalDevice() {
     return OGE_FALSE;
   }
 
-  VkPhysicalDevice pDevices[deviceCount];
-  vkEnumeratePhysicalDevices(s_rendererState.instance, &deviceCount, pDevices);
+  VkPhysicalDevice devices[deviceCount];
+  vkEnumeratePhysicalDevices(s_rendererState.instance, &deviceCount, devices);
 
   for (uint32_t i = 0; i < deviceCount; ++i) {
-    if (!isPhysicalDeviceSuitable(pDevices[i])) { continue; }
+    if (!isGPUSuitable(devices[i])) { continue; }
 
-    s_rendererState.physicalDevice = pDevices[i];
+    s_rendererState.physicalDevice = devices[i];
 
     VkPhysicalDeviceFeatures deviceFeatures;
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties;
 
-    vkGetPhysicalDeviceFeatures(pDevices[i], &deviceFeatures);
-    vkGetPhysicalDeviceProperties(pDevices[i], &deviceProperties);
+    vkGetPhysicalDeviceFeatures(devices[i], &deviceFeatures);
+    vkGetPhysicalDeviceProperties(devices[i], &deviceProperties);
     vkGetPhysicalDeviceMemoryProperties(
-      pDevices[i], &deviceMemoryProperties);
+      devices[i], &deviceMemoryProperties);
 
     s_rendererState.physicalDeviceFeatures = deviceFeatures;
     s_rendererState.physicalDeviceProperties = deviceProperties;
     s_rendererState.physicalDeviceMemoryProperties = 
       deviceMemoryProperties;
 
-    ogeQuerryQueueFamilyIndicies(
-      pDevices[i], s_rendererState.surface,
+    querryQueueFamilyIndicies(
+      devices[i], s_rendererState.surface,
       &s_rendererState.queueFamilyIndicies);
 
-    ogeQuerrySwapchainSupport(
-      pDevices[i], s_rendererState.surface,
+    querrySwapchainSupport(
+      devices[i], s_rendererState.surface,
       &s_rendererState.swapchainSupport);
 
     OGE_INFO(
-      "Selected GPU:\nname:               %s\ndriver version:     %d.%d.%d\nVulkan API version: %d.%d.%d", 
+      "Selected GPU:\nname: %s\ndriver version: %d.%d.%d\nVulkan API version: %d.%d.%d", 
       deviceProperties.deviceName,
 
       VK_VERSION_MAJOR(deviceProperties.driverVersion),
@@ -322,39 +332,27 @@ b8 selectPhysicalDevice() {
   return OGE_FALSE;
 }
 
-b8 createLogicalDevice() {
+OGE_INLINE b8 createLogicalDevice() {
   // Queues
-  u32 queueFamilyCount;
-  vkGetPhysicalDeviceQueueFamilyProperties(
-    s_rendererState.physicalDevice, &queueFamilyCount, 0);
+  const u32 queueFamilyIndicies[] = {
+    s_rendererState.queueFamilyIndicies.graphics,
+    s_rendererState.queueFamilyIndicies.transfer,
+    s_rendererState.queueFamilyIndicies.compute,
+    s_rendererState.queueFamilyIndicies.present,
+  };
 
-  u8 queueCount[queueFamilyCount];
-  ++queueCount[s_rendererState.queueFamilyIndicies.graphics];
-  ++queueCount[s_rendererState.queueFamilyIndicies.transfer];
-  ++queueCount[s_rendererState.queueFamilyIndicies.compute];
-  ++queueCount[s_rendererState.queueFamilyIndicies.present];
-
-  u32 queueToCreateCount = 0;
-  for (u32 i = 0; i < queueFamilyCount; ++i) {
-    queueToCreateCount += queueCount[i] > 0;
-  }
-
-  VkDeviceQueueCreateInfo pQueueCreateInfos[queueToCreateCount];
-  u32 j = 0;
+  VkDeviceQueueCreateInfo queueCreateInfos[4];
 
   const f32 queuePriopity = 1.0f;
-  for (u32 i = 0; i < queueFamilyCount; ++i) {
-    if (queueCount[i] == 0) { continue; }
+  for (u32 i = 0; i < 4; ++i) {
+    VkDeviceQueueCreateInfo *ptr  = queueCreateInfos + i;
 
-    VkDeviceQueueCreateInfo *ptr  =
-      pQueueCreateInfos + j++;
-
-    ptr->sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    ptr->flags = 0;
-    ptr->queueFamilyIndex = i;
-    ptr->queueCount = queueCount[i];
+    ptr->sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    ptr->flags            = 0;
+    ptr->queueFamilyIndex = queueFamilyIndicies[i];
+    ptr->queueCount       = 1;
     ptr->pQueuePriorities = &queuePriopity;
-    ptr->pNext = 0;
+    ptr->pNext            = 0;
   }
 
   // Device features
@@ -376,8 +374,8 @@ b8 createLogicalDevice() {
 
     .pEnabledFeatures = &deviceFeatures,
 
-    .queueCreateInfoCount = queueToCreateCount,
-    .pQueueCreateInfos = pQueueCreateInfos,
+    .queueCreateInfoCount = 4,
+    .pQueueCreateInfos = queueCreateInfos,
 
     .pNext = 0,
   };
@@ -415,23 +413,42 @@ b8 createLogicalDevice() {
   return OGE_TRUE;
 }
 
-VkSurfaceFormatKHR chooseSurfaceFormat(
-  VkSurfaceFormatKHR *pFormats, u32 formatsCount) {
-  return pFormats[0];
+OGE_INLINE VkSurfaceFormatKHR chooseSurfaceFormat(
+  VkSurfaceFormatKHR *formats, u32 formatsCount) {
+
+  for (u32 i = 0; i < formatsCount; ++i) {
+    if (formats[i].format != VK_FORMAT_R8G8B8_SRGB) {
+      continue;
+    }
+
+    if (formats[i].colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+      continue;
+    }
+
+    return formats[i];
+  }
+
+  return formats[0];
 }
 
-VkPresentModeKHR choosePresentMode(
-  VkPresentModeKHR *pPresentModes, u32 presentModesCount) {
-  return pPresentModes[0];
+OGE_INLINE VkPresentModeKHR choosePresentMode(
+  VkPresentModeKHR *presentModes, u32 presentModesCount) {
+
+  for (u32 i = 0; i < presentModesCount; ++i) {
+    if (presentModes[i] != VK_PRESENT_MODE_MAILBOX_KHR) { continue; }
+    return presentModes[i];
+  }
+
+  return presentModes[0];
 }
 
-VkExtent2D chooseExtent(VkSurfaceCapabilitiesKHR surfaceCapabilities) {
+OGE_INLINE VkExtent2D chooseExtent(VkSurfaceCapabilitiesKHR surfaceCapabilities) {
   return surfaceCapabilities.currentExtent;
 }
 
-b8 createSwapchain() {
-  OgeSwapchainSupport swapchainSupport;
-  ogeQuerrySwapchainSupport(s_rendererState.physicalDevice,
+OGE_INLINE b8 createSwapchain() {
+  swapchainSupport swapchainSupport;
+  querrySwapchainSupport(s_rendererState.physicalDevice,
                             s_rendererState.surface, &swapchainSupport);
 
   VkSurfaceFormatKHR surfaceFormat =
@@ -442,56 +459,170 @@ b8 createSwapchain() {
     choosePresentMode(swapchainSupport.pPresentModes,
                       swapchainSupport.presentModeCount);
 
-  VkExtent2D extent = chooseExtent(swapchainSupport.surfaceCapabilities);
+  s_rendererState.swapchainExtent
+    = chooseExtent(swapchainSupport.surfaceCapabilities);
+
+  s_rendererState.swapchainFormat = surfaceFormat.format;
 
   // Creation
+  u32 queueFamilyIndicies[] = {
+    s_rendererState.queueFamilyIndicies.graphics,
+    s_rendererState.queueFamilyIndicies.transfer,
+    s_rendererState.queueFamilyIndicies.compute,
+    s_rendererState.queueFamilyIndicies.present
+  };
+
   VkSwapchainCreateInfoKHR info = {
-    .sType         = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .pNext         = 0,
-    .flags         = 0,
-    .surface       = s_rendererState.surface,
-    .minImageCount = swapchainSupport.surfaceCapabilities.minImageCount,
-
-    .imageFormat      = surfaceFormat.format,
-    .imageColorSpace  = surfaceFormat.colorSpace,
-    .imageExtent      = extent,
-    .imageArrayLayers = 1,
-    .imageSharingMode =
-      (s_rendererState.queueFamilyIndicies.graphics !=
-      s_rendererState.queueFamilyIndicies.present) ?
-      VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,
-
-    .imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-
-    // TODO: set queue families
-    .queueFamilyIndexCount = 0,
-    .pQueueFamilyIndices = 0,
-
-    .preTransform = swapchainSupport.surfaceCapabilities.currentTransform,
-    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-
-    .presentMode = presentMode,
-    .clipped = VK_TRUE,
-    
-    .oldSwapchain = VK_NULL_HANDLE,
+    .sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .flags                 = 0,
+    .surface               = s_rendererState.surface,
+    .minImageCount         = swapchainSupport.surfaceCapabilities.minImageCount,
+    .imageFormat           = s_rendererState.swapchainFormat,
+    .imageColorSpace       = surfaceFormat.colorSpace,
+    .imageExtent           = s_rendererState.swapchainExtent,
+    .imageArrayLayers      = 1,
+    .imageSharingMode      = VK_SHARING_MODE_CONCURRENT,
+    .imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    .preTransform          =
+      swapchainSupport.surfaceCapabilities.currentTransform,
+    .compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    .queueFamilyIndexCount = 4,
+    .pQueueFamilyIndices   = queueFamilyIndicies,
+    .presentMode           = presentMode,
+    .clipped               = VK_TRUE,
+    .oldSwapchain          = VK_NULL_HANDLE,
+    .pNext                 = 0,
   };
 
   VkResult result = vkCreateSwapchainKHR(
-    s_rendererState.logicalDevice, &info,
-    s_rendererState.pAllocator, &s_rendererState.swapchain);
+    s_rendererState.logicalDevice, &info, s_rendererState.pAllocator,
+    &s_rendererState.swapchain);
   if (result != VK_SUCCESS) {
     OGE_ERROR("Failed to create Vulkan swapchain.");
     return OGE_FALSE;
   }
   OGE_TRACE("Vulkan swapchain created.");
+
+  vkGetSwapchainImagesKHR(
+    s_rendererState.logicalDevice, s_rendererState.swapchain,
+    &s_rendererState.swapchainImageCount, 0);
+
+  s_rendererState.swapchainImages =
+    ogeAlloc(sizeof(VkImage) * s_rendererState.swapchainImageCount,
+             OGE_MEMORY_TAG_ARRAY);
+
+  vkGetSwapchainImagesKHR(
+    s_rendererState.logicalDevice, s_rendererState.swapchain,
+    &s_rendererState.swapchainImageCount, s_rendererState.swapchainImages);
+
+  OGE_TRACE("Vulkan swapchain images are got.");
+
   return OGE_TRUE;
 }
 
-b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
-  if (s_rendererState.initialized) {
-    OGE_WARN("Trying to initialize renderer while it's already initialized.");
-    return OGE_TRUE;
+b8 createSwapchainImageViews() {
+  s_rendererState.swapchainImageViews =
+    ogeAlloc(sizeof(VkImageView) * s_rendererState.swapchainImageCount,
+             OGE_MEMORY_TAG_ARRAY);
+
+  for (u32 i = 0; i < s_rendererState.swapchainImageCount; i++) {
+    VkImageViewCreateInfo info = {
+      .sType                           =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      .image                           = s_rendererState.swapchainImages[i],
+      .viewType                        = VK_IMAGE_VIEW_TYPE_2D,
+      .format                          = s_rendererState.swapchainFormat,
+      .components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+      .subresourceRange.baseMipLevel   = 0,
+      .subresourceRange.levelCount     = 1,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount     = 1,
+    };
+    VkResult result =
+      vkCreateImageView(s_rendererState.logicalDevice, &info,
+                        s_rendererState.pAllocator,
+                        &s_rendererState.swapchainImageViews[i]);
+    if (result != VK_SUCCESS) {
+      OGE_TRACE("Failed to create image views.");
+      return OGE_FALSE;
+    }
   }
+
+  OGE_TRACE("Vulkan swapchain image views created.");
+  return OGE_TRUE;
+}
+
+b8 createRenderPass() {
+  VkAttachmentDescription colorAttachment = {
+    .flags          = 0,
+    .format         = s_rendererState.swapchainFormat,
+    .samples        = VK_SAMPLE_COUNT_1_BIT,
+    .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+    .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+    .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+  };
+
+  VkAttachmentReference colorAttachmentRef = {
+    .attachment = 0,
+    .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  };
+
+  VkSubpassDescription subpass = {
+    .flags                   = 0,
+    .inputAttachmentCount    = 0,
+    .pInputAttachments       = 0,
+    .pPreserveAttachments    = 0,
+    .pDepthStencilAttachment = 0,
+    .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
+    .colorAttachmentCount    = 1,
+    .pColorAttachments       = &colorAttachmentRef,
+  };
+
+  VkSubpassDependency dependency = {
+    .srcSubpass      = VK_SUBPASS_EXTERNAL,
+    .dstSubpass      = 0,
+    .srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .srcAccessMask   = 0,
+    .dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .dependencyFlags = 0,
+  };
+
+  VkRenderPassCreateInfo info = {
+    .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    .flags           = 0,
+    .attachmentCount = 1,
+    .pAttachments    = &colorAttachment,
+    .subpassCount    = 1,
+    .pSubpasses      = &subpass,
+    .dependencyCount = 1,
+    .pDependencies   = &dependency,
+    .pNext           = 0,
+  };
+
+  VkResult result =
+    vkCreateRenderPass(s_rendererState.logicalDevice, &info,
+                       0, &s_rendererState.renderPass);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan render pass.");
+    return OGE_FALSE;
+  }
+  OGE_TRACE("Vulkan render pass created.");
+  return OGE_TRUE;
+}
+
+b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
+  OGE_ASSERT(
+    !s_rendererState.initialized,
+    "Trying to initialize renderer while it's already initialized."
+  );
 
   OGE_TRACE("Initializing renderer.");
 
@@ -501,10 +632,12 @@ b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
   createDebugMessenger();
   #endif
 
-  if (!createSurface()) { return OGE_FALSE; }
-  if (!selectPhysicalDevice()) { return OGE_FALSE; }
-  if (!createLogicalDevice()) { return OGE_FALSE; }
-  if (!createSwapchain()) { return OGE_FALSE; }
+  if (!createSurface())             { return OGE_FALSE; }
+  if (!selectGPU())                 { return OGE_FALSE; }
+  if (!createLogicalDevice())       { return OGE_FALSE; }
+  if (!createSwapchain())           { return OGE_FALSE; }
+  if (!createSwapchainImageViews()) { return OGE_FALSE; }
+  if (!createRenderPass())          { return OGE_FALSE; }
 
   s_rendererState.initialized = OGE_TRUE;
   OGE_TRACE("Renderer initialized.");
@@ -512,12 +645,22 @@ b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
 }
 
 void ogeRendererTerminate() {
-  if (!s_rendererState.initialized) {
-    OGE_WARN("Trying to terminate renderer while it's already terminated.");
-    return;
-  }
+  OGE_ASSERT(
+    s_rendererState.initialized,
+    "Trying to terminate renderer while it's already terminated."
+  );
 
   OGE_TRACE("Terminating Vulkan renderer.");
+
+  vkDestroyRenderPass(s_rendererState.logicalDevice,
+                      s_rendererState.renderPass,
+                      s_rendererState.pAllocator);
+
+  for (u32 i = 0; i < s_rendererState.swapchainImageCount; ++i) {
+    vkDestroyImageView(s_rendererState.logicalDevice,
+                       s_rendererState.swapchainImageViews[i], 
+                       s_rendererState.pAllocator);
+  }
 
   vkDestroySwapchainKHR(s_rendererState.logicalDevice,
                         s_rendererState.swapchain,

@@ -1,19 +1,17 @@
+#pragma once
+
 #include <vulkan/vulkan.h>
 
 #include "oge/defines.h"
-#include "oge/core/memory.h"
-#include "oge/core/assertion.h"
-#include "oge/renderer/querries.h"
-#include "oge/renderer/renderer-types.h"
 
-// TODO: improve querry script 
-void ogeQuerryQueueFamilyIndicies(
+#include "types.inl"
+
+// btw don't sure, that we can call this function a querry typa func, so...
+// think about it later
+OGE_INLINE void querryQueueFamilyIndicies(
   VkPhysicalDevice device,
   VkSurfaceKHR surface,
-  OgeQueueFamilyIndicies *pQueueFamilyIndicies) {
-
-  OGE_ASSERT(pQueueFamilyIndicies,
-             "querryQueueFamilyIndicies(): pQueueFamilyIndicies must be a non NULL value.");
+  queueFamilyIndicies *pQueueFamilyIndicies) {
 
   pQueueFamilyIndicies->graphics = -1;
   pQueueFamilyIndicies->transfer = -1;
@@ -62,11 +60,10 @@ void ogeQuerryQueueFamilyIndicies(
   }
 }
 
-
-void ogeQuerrySwapchainSupport(
+void querrySwapchainSupport(
   VkPhysicalDevice device,
   VkSurfaceKHR surface,
-  OgeSwapchainSupport *pSwapchainSupport) {
+  swapchainSupport *pSwapchainSupport) {
 
   // Surface capabilities
   VkSurfaceCapabilitiesKHR surfaceCapabilities; vkGetPhysicalDeviceSurfaceCapabilitiesKHR(

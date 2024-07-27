@@ -13,12 +13,11 @@ struct {
 } s_eventsState = { .initialized = OGE_FALSE };
 
 void ogeEventsInit() {
-  if (s_eventsState.initialized) {
-    OGE_WARN("Trying to initialize events system while it's already initialized.");
-    return;
-  }
+  OGE_ASSERT(
+    !s_eventsState.initialized,
+    "Trying to initialize events system while it's already initialized."
+  );
 
-  ogeMemSet(s_eventsState.callbacks, 0, sizeof(s_eventsState));
   s_eventsState.initialized = OGE_TRUE;
 
   // Allocate DArray for each event code
@@ -30,10 +29,10 @@ void ogeEventsInit() {
 }
 
 void ogeEventsTerminate() {
-  if (!s_eventsState.initialized) {
-    OGE_WARN("Trying to initialie events system while it'a already initialized.");
-    return;
-  }
+  OGE_ASSERT(
+    s_eventsState.initialized,
+    "Trying to terminate events system while it's already initialized."
+  );
 
   s_eventsState.initialized = OGE_FALSE;
 

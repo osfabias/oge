@@ -51,24 +51,12 @@ typedef struct OgeLoggingInitInfo {
  * @return Returns OGE_TRUE is logging system was successfully
  *         initialized, otherwise returns OGE_FALSE.
  */
-b8   ogeLoggingInit(const OgeLoggingInitInfo *initInfo);
+b8 ogeLoggingInit(const OgeLoggingInitInfo *initInfo);
 
 /**
  * @brief Terminates logging system.
  */
 void ogeLoggingTerminate();
-
-/**
- * @brief Sets logging level.
- * @param level A logging level to set.
- */
-void ogeLoggingSetLevel(OgeLogLevel level);
-
-/**
- * @brief Returns current logging level.
- * @return Returns current logging level.
- */
-OgeLogLevel ogeLoggingGetLevel();
 
 /**
  * @brief Ptrints a log message with given logging level.

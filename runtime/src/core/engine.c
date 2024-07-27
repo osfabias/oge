@@ -1,9 +1,10 @@
-#include "opl/opl.h"
+#include <opl/opl.h>
 
 #include "oge/core/input.h"
 #include "oge/core/engine.h"
 #include "oge/core/events.h"
 #include "oge/core/logging.h"
+#include "oge/core/assertion.h"
 #include "oge/core/application.h"
 #include "oge/renderer/renderer.h"
 
@@ -15,7 +16,7 @@ struct {
 OGE_INLINE b8 initSystems() {
   const OgeInitInfo initInfo = *s_ogeState.application->ogeInitInfo;
 
-  if(!ogeLoggingInit(initInfo.loggingInitInfo)) {
+  if (!ogeLoggingInit(initInfo.loggingInitInfo)) {
     OGE_ERROR("Failed to initizlize logging system.");
   }
 
@@ -40,20 +41,23 @@ OGE_INLINE void terminateSystems() {
   ogeRendererTerminate();
   ogeInputTerminate();
   ogeEventsTerminate();
+
   oplTerminate();
+  OGE_INFO("OPL terminated.");
+
   ogeLoggingTerminate();
 }
 
 b8 ogeInit(const OgeApplication *application) {
+  OGE_ASSERT(
+    !s_ogeState.initialized,
+    "Trying to initialize OGE while it's already initialized."
+  );
+
   OGE_INFO("OGE info\nversion: %d.%d.%d",
            OGE_VERSION_MAJOR,
            OGE_VERSION_MINOR,
            OGE_VERSION_PATCH);
-
-  if (s_ogeState.initialized) {
-    OGE_WARN("Trying to initialize OGE while it's already initialized.");
-    return OGE_TRUE;
-  }
 
   s_ogeState.application = application;
 
@@ -92,10 +96,10 @@ void ogeRun() {
 }
 
 void ogeTerminate() {
-  if (!s_ogeState.initialized) {
-    OGE_WARN("Trying to terminate OGE while it's already terminated.");
-    return;
-  }
+  OGE_ASSERT(
+    s_ogeState.initialized,
+    "Trying to initialize OGE while it's already initialized."
+  );
 
   s_ogeState.application->terminate();
   OGE_INFO("OGE application terminated.");

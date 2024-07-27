@@ -20,8 +20,6 @@
 
 #include "oge/core/engine.h"
 
-typedef struct OgeApplication OgeApplication;
-
 /**
  * @brief OGE application struct
  *
@@ -48,11 +46,12 @@ typedef struct OgeApplication OgeApplication;
  * A pointer to the application terminate function.
  * This function is called before the OGE system termination.
  */
-struct OgeApplication {
+typedef struct OgeApplication {
   const OgeInitInfo *ogeInitInfo;
 
   b8   (*init)      ();
   b8   (*update)    ();
   b8   (*render)    ();
   void (*terminate) ();
-};
+} OgeApplication;
+
