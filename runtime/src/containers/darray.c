@@ -136,8 +136,9 @@ void ogeDArrayPopAt(void *darray, u64 index, void *pOut) {
   ogeMemCpy(pOut, ((u8*)darray) + darrayHeader->stride * index,
                 darrayHeader->stride);
   ogeMemMove(((u8*)darray) + darrayHeader->stride * index,
-                ((u8*)darray) + darrayHeader->stride * (index + 1),
-                darrayHeader->length * darrayHeader->stride);
+             ((u8*)darray) + darrayHeader->stride * (index + 1),
+             darrayHeader->length * darrayHeader->stride);
+
   darrayHeader->length -= 1;
 }
 

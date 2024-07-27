@@ -117,7 +117,7 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
   oplVkExtensions(ppExtensionNames);
 
   const char* *ppExtensions =
-    ogeDArrayAllocate(extensionCount, sizeof(char*));
+    ogeDArrayAlloc(extensionCount, sizeof(char*));
   ppExtensions =
     ogeDArrayExtend(ppExtensions, ppExtensionNames, extensionCount);
 
@@ -152,7 +152,7 @@ b8 createInstance(OgeRendererInitInfo *pInitInfo) {
   const VkResult result = vkCreateInstance(
     &info, s_rendererState.pAllocator, &s_rendererState.instance);
 
-  ogeDArrayDeallocate(ppExtensions);
+  ogeDArrayFree(ppExtensions);
 
   if (result != VK_SUCCESS) {
     OGE_ERROR("Failed to create Vulkan instance: %d.", result);

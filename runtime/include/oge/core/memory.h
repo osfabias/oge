@@ -140,7 +140,7 @@ OGE_API void ogeFree(void *block);
  * @param size A size of the memory block to move in bytes.
  */
 #define ogeMemMove(dst, src, size) \
-  oplMemMove(pDstBlock, pSrcBlock, size)
+  oplMemMove(dst, src, size)
 
 /**
  * @brief Compares two blocks of memory.

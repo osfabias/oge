@@ -3,7 +3,7 @@
 // OGE configuration
 const OgeLoggingInitInfo loggingInitInfo = {
   .logLevel  = OGE_LOG_LEVEL_TRACE,
-  .pFileName = "logs.txt",
+  .fileName = "logs.txt",
 };
 
 const OplInitInfo oplInitInfo = {
@@ -18,9 +18,9 @@ const OgeRendererInitInfo rendererInitInfo = {
 };
 
 const OgeInitInfo ogeInitInfo = {
-  .pLoggingInitInfo  = &loggingInitInfo,
-  .pOplInitInfo = &oplInitInfo,
-  .pRendererInitInfo = &rendererInitInfo,
+  .loggingInitInfo  = &loggingInitInfo,
+  .oplInitInfo = &oplInitInfo,
+  .rendererInitInfo = &rendererInitInfo,
 };
 
 // Application functions
@@ -40,11 +40,11 @@ void applicationTerminate(void *pState) { }
 
 // Application create function
 b8 ogeApplicationCreate(OgeApplication *pApplication) {
-  pApplication->pOgeInitInfo = &ogeInitInfo;
-  pApplication->pfnInit      = applicationInit;
-  pApplication->pfnUpdate    = applicationUpdate;
-  pApplication->pfnRender    = applicationRender;
-  pApplication->pfnTerminate = applicationTerminate;
+  pApplication->ogeInitInfo = &ogeInitInfo;
+  pApplication->init      = applicationInit;
+  pApplication->update    = applicationUpdate;
+  pApplication->render    = applicationRender;
+  pApplication->terminate = applicationTerminate;
 
   return OGE_TRUE;
 }
