@@ -21,6 +21,7 @@ typedef enum OgeLogLevel {
   OGE_LOG_LEVEL_FATAL,
 } OgeLogLevel;
 ```
+
 ## Function naming
 All of the function that are used globally across the OGE should
 be named by the next convention:

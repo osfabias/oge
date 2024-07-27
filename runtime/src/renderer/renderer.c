@@ -415,31 +415,63 @@ b8 createLogicalDevice() {
   return OGE_TRUE;
 }
 
+VkSurfaceFormatKHR chooseSurfaceFormat(
+  VkSurfaceFormatKHR *pFormats, u32 formatsCount) {
+  return pFormats[0];
+}
+
+VkPresentModeKHR choosePresentMode(
+  VkPresentModeKHR *pPresentModes, u32 presentModesCount) {
+  return pPresentModes[0];
+}
+
+VkExtent2D chooseExtent(VkSurfaceCapabilitiesKHR surfaceCapabilities) {
+  return surfaceCapabilities.currentExtent;
+}
+
 b8 createSwapchain() {
+  OgeSwapchainSupport swapchainSupport;
+  ogeQuerrySwapchainSupport(s_rendererState.physicalDevice,
+                            s_rendererState.surface, &swapchainSupport);
+
+  VkSurfaceFormatKHR surfaceFormat =
+    chooseSurfaceFormat(swapchainSupport.pFormats,
+                        swapchainSupport.formatCount);
+
+  VkPresentModeKHR presentMode =
+    choosePresentMode(swapchainSupport.pPresentModes,
+                      swapchainSupport.presentModeCount);
+
+  VkExtent2D extent = chooseExtent(swapchainSupport.surfaceCapabilities);
 
   // Creation
   VkSwapchainCreateInfoKHR info = {
-    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .pNext = 0,
-    .flags = 0,
-    .surface = s_rendererState.surface,
-    .minImageCount = 1,
+    .sType         = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .pNext         = 0,
+    .flags         = 0,
+    .surface       = s_rendererState.surface,
+    .minImageCount = swapchainSupport.surfaceCapabilities.minImageCount,
 
-    .imageFormat = 0,
-    .imageColorSpace = 0,
-    .imageExtent = 0,
-    .imageArrayLayers = 0,
-    .imageUsage = 0,
-    .imageSharingMode = 0,
+    .imageFormat      = surfaceFormat.format,
+    .imageColorSpace  = surfaceFormat.colorSpace,
+    .imageExtent      = extent,
+    .imageArrayLayers = 1,
+    .imageSharingMode =
+      (s_rendererState.queueFamilyIndicies.graphics !=
+      s_rendererState.queueFamilyIndicies.present) ?
+      VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,
 
+    .imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+
+    // TODO: set queue families
     .queueFamilyIndexCount = 0,
     .pQueueFamilyIndices = 0,
 
-    .preTransform = 0,
-    .compositeAlpha = 0,
+    .preTransform = swapchainSupport.surfaceCapabilities.currentTransform,
+    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
 
-    .presentMode = 0,
-    .clipped = 0,
+    .presentMode = presentMode,
+    .clipped = VK_TRUE,
     
     .oldSwapchain = VK_NULL_HANDLE,
   };
@@ -472,6 +504,7 @@ b8 ogeRendererInit(OgeRendererInitInfo *pInitInfo) {
   if (!createSurface()) { return OGE_FALSE; }
   if (!selectPhysicalDevice()) { return OGE_FALSE; }
   if (!createLogicalDevice()) { return OGE_FALSE; }
+  if (!createSwapchain()) { return OGE_FALSE; }
 
   s_rendererState.initialized = OGE_TRUE;
   OGE_TRACE("Renderer initialized.");
@@ -485,6 +518,10 @@ void ogeRendererTerminate() {
   }
 
   OGE_TRACE("Terminating Vulkan renderer.");
+
+  vkDestroySwapchainKHR(s_rendererState.logicalDevice,
+                        s_rendererState.swapchain,
+                        s_rendererState.pAllocator);
 
   vkDestroyDevice(s_rendererState.logicalDevice, s_rendererState.pAllocator);
 

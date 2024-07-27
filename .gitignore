@@ -1,4 +1,7 @@
-#macos
+# doxygen
+doc
+
+# macos
 .DS_Store
 
 # misc

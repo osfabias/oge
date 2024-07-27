@@ -1,94 +1,145 @@
+/**
+ * @file darray.h
+ * @brief The header of the darray
+ *
+ * Copyright (c) 2023-2024 Osfabias
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include "oge/defines.h"
 
 /**
- * @brief Allocates a dynamic array.
- * @param length Size of a dynamic array in elements.
- * @param stride Size of the each individual element.
+ * @brief Allocates a darray.
+ * @param length A size of a darray in elements.
+ * @param stride A size of the each individual element in bytes.
+ * @returns Returns a pointer to the allocated darray.
  */
-OGE_API void* ogeDArrayAllocate(u64 length, u64 stride);
+OGE_API void* ogeDArrayAlloc(u64 length, u64 stride);
 
 /**
- * @brief Deallocates a dynamic array.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Frees a darray.
+ * @param darray A pointer to a darray.
  */
-OGE_API void ogeDArrayDeallocate(void *pDArray);
+OGE_API void ogeDArrayFree(void *darray);
 
 /**
- * @brief Returns a length (amount of elements) of a dynamic array.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Returns a length (amount of elements) of a darray.
+ * @param darray A pointer to a darray.
+ * @returns Returns a length of the given darray.
  */
-#define ogeDArrayLength(pDArray) \
-  *((u64*)pDArray - 2) // see darray.c for darray header structure
+#define ogeDArrayLength(darray) \
+  *((u64*)darray - 2) // see darray.c for darray header structure
 
 /**
- * @brief Return a stride (size of an element) of a dynamic array.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Returns a stride (size of an element) of a darray.
+ * @param darray A pointer to a darray.
  */
-#define ogeDArrayStride(pDArray) \
-  *((u64*)pDArray - 1) // see darray.c for darray header structure
+#define ogeDArrayStride(darray) \
+  *((u64*)darray - 1) // see darray.c for darray header structure
 
 /**
- * @brief Resizes a dynamic array to the specified length.
- * @param pDArray A pointer to a dynamic array.
- * @param length A length to resize to.
+ * @brief Resizes the given darray to the specified length.
+ * @param darray A pointer to a darray.
+ * @param length A length in elements to resize to.
+ * @returns Returns a pointer to the new resized darray.
  */
-OGE_API void* ogeDArrayResize(void *pDArray, u64 length);
+OGE_API void* ogeDArrayResize(void *darray, u64 length);
 
 /**
- * @brief Shrinks a dynamic array to it's current length.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Shrinks a darray's capacity to it's length.
+ * @param darray A pointer to a darray.
+ * @return Returns a pointer to the new resized darray.
  */
-OGE_API void* ogeDArrayShrink(void *pDArray);
+OGE_API OGE_INLINE void* ogeDArrayShrink(void *darray) {
+  return ogeDArrayResize(darray, ogeDArrayLength(darray));
+}
 
 /**
- * @brief Pushes a given value to the end (right side) of a dynamic array.
- * @param pDArray A pointer to a dynamic array.
- * @param pValue A pointer to a value to push.
+ * @brief Copies a value to the end of a darray.
+ * @param darray A pointer to a darray.
+ * @param value A pointer to a value to copy.
+ * @return Returns a pointer to the old darray or if there wasn't 
+ *         enough space for inserting a value to the new reallocated
+ *         darray.
+ * new reallocated darray.
  */
-OGE_API void* ogeDArrayAppend(void *pDArray, const void *pValue);
+OGE_API void* ogeDArrayAppend(void *darray, const void *value);
 
 /**
- * @brief Extends a dynamic array.
+ * @brief Extends a dynamic array and copies a memory block
+ *        to the end of a darray.
+ * @param darray A pointer to a darray.
+ * @param src A pointer to a source memory block to copy from.
+ * @param length A length of the source memory block in elements.
+ *               Stride will be determined from the passed darray.
+ * @return Returns a pointer to the old darray or if there wasn't 
+ *         enough space for inserting a value to the new reallocated
+ *         darray.
  */
-OGE_API void* ogeDArrayExtend(void *pDArray, const void *pSrcBlock, u64 length);
+OGE_API void* ogeDArrayExtend(void *darray, const void *src, u64 length);
 
 /**
- * @brief Inserts a given value at specified index in a dynamic array.
- * @param pDArray A pointer to a dynamic array.
- * @param index An index to insert at.
- * @param pValue A pointer to a value to push.
+ * @brief Copies a value to the specified index in a darray.
+ * @param darray A pointer to a darray.
+ * @param index An index to copy to.
+ * @param value A pointer to a value to copy.
+ * @return Returns a pointer to the old darray or if there wasn't 
+ *         enough space for inserting a value to the new reallocated
+ *         darray.
  */
-OGE_API void* ogeDArrayInsert(void *pDArray, u64 index, const void *pValue);
+OGE_API void* ogeDArrayInsert(void *dArray, u64 index, const void *value);
 
 /**
- * @brief Pops a value from the end (right side) of a dynamic array.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Copies a value from the end of a darray and removes it
+ *        from darray.
+ * @param darray A pointer to a darray.
+ * @param out A pointer to a variable to copy to.
  */
-OGE_API void ogeDArrayPop(void *pDArray, void *pOut);
+OGE_API void ogeDArrayPop(void *darray, void *out);
 
 /**
- * @brief Pops a value at the given index in a dynamic array.
- * @param pDArray A pointer to a dynamic array.
+ * @brief Copies a value from the given index in a darray.
+ * @param darray A pointer to a darray.
  * @param index An index to pop from.
+ * @param out A pointer to a variable to copy to.
  */
-OGE_API void ogeDArrayPopAt(void *pDArray, u64 index, void *pOut);
+OGE_API void ogeDArrayPopAt(void *darray, u64 index, void *out);
 
 /**
- * @brief Deletes an element at given index from a dynamic array.
+ * @brief Removes an element at the given index from a darray.
+ * @param darray A pointer to a darray.
+ * @param index An index to remove from.
  */
-OGE_API void ogeDArrayRemove(void *pDArray, u64 index);
+OGE_API void ogeDArrayRemove(void *darray, u64 index);
 
 /**
- * @brief Clears a dynamic array.
+ * @brief Clears darray.
+ *
+ * Technicaly, it just means, that the length of a darray
+ * is set to 0.
+ *
+ * @param darray A pointer to a darray.
  */
-#define ogeDArrayClear(pDArray) \
+#define ogeDArrayClear(darray) \
   *((u64*)pDArray - 2) = 0 // see darray.c for darray header structure
 
 /**
- * @brief Returns an index of first appearance of pValue.
- * @param pDArray A pointer to a dynamic array.
- * @param pValue A pointer to a value to find.
+ * @brief Returns an index of the first appearance of a value.
+ * @param darray A pointer to a darray.
+ * @param value A pointer to a value to find.
+ * @return Returns an index of the first appearance of a value
+ *         or if it wasn't found returns -1.
  */
-OGE_API u64 ogeDArrayFind(void *pDArray, const void *pValue);
+OGE_API u64 ogeDArrayFind(void *darray, const void *value);

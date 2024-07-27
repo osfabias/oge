@@ -1,15 +1,15 @@
-#include "oge/core/assertion.h"
 #include "oge/defines.h"
 #include "oge/core/memory.h"
 #include "oge/core/events.h"
 #include "oge/core/logging.h"
+#include "oge/core/assertion.h"
 #include "oge/containers/darray.h"
 
 #define MAX_EVENT_CODES 1024
 
 struct {
   b8 initialized;
-  OgeEventCallback* pDArrayCallbacks[MAX_EVENT_CODES];
+  OgeEventCallback* callbacks[MAX_EVENT_CODES]; // darrays
 } s_eventsState = { .initialized = OGE_FALSE };
 
 void ogeEventsInit() {
@@ -18,13 +18,12 @@ void ogeEventsInit() {
     return;
   }
 
-  ogeMemSet(s_eventsState.pDArrayCallbacks, 0, sizeof(s_eventsState));
+  ogeMemSet(s_eventsState.callbacks, 0, sizeof(s_eventsState));
   s_eventsState.initialized = OGE_TRUE;
 
   // Allocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
-    s_eventsState.pDArrayCallbacks[i] =
-      ogeDArrayAllocate(2, sizeof(OgeEventCallback));
+    s_eventsState.callbacks[i] = ogeDArrayAlloc(2, sizeof(OgeEventCallback));
   }
 
   OGE_INFO("Events system initialized.");
@@ -40,7 +39,7 @@ void ogeEventsTerminate() {
 
   // Deallocate DArray for each event code
   for(u16 i = 0; i < MAX_EVENT_CODES; ++i) {
-    ogeDArrayDeallocate(s_eventsState.pDArrayCallbacks[i]);
+    ogeDArrayFree(s_eventsState.callbacks[i]);
   }
 
   OGE_INFO("Events system terminated.");
@@ -48,25 +47,26 @@ void ogeEventsTerminate() {
 
 void ogeEventsSubscribe(u16 code, OgeEventCallback callback) {
   OGE_ASSERT(s_eventsState.initialized, "Trying to subscribe a callback to an event while events system is offline.");
-  ogeDArrayAppend(s_eventsState.pDArrayCallbacks[code], &callback);
+  ogeDArrayAppend(s_eventsState.callbacks[code], &callback);
   OGE_TRACE("Subscribed %p callback for %d event.", &callback, code);
 }
 
 void ogeEventsUnsubscribe(u16 code, OgeEventCallback callback) {
   OGE_ASSERT(s_eventsState.initialized, "Trying to unsubscribe a callback from an event while events system is offline.");
-  u64 index = ogeDArrayFind(s_eventsState.pDArrayCallbacks[code], &callback);
+  u64 index = ogeDArrayFind(s_eventsState.callbacks[code], &callback);
 
   if (index == -1) { return; }
-  ogeDArrayRemove(s_eventsState.pDArrayCallbacks[code], index);
+  ogeDArrayRemove(s_eventsState.callbacks[code], index);
   OGE_TRACE("Unsubscribed %p callback for %d event.", &callback, code);
 }
 
-void ogeEventsInvoke(u16 code, void *sender, OgeEventData data) {
-  const u64 callbacksCount = ogeDArrayLength(s_eventsState.pDArrayCallbacks[code]);
+void ogeEventsInvoke(u16 code, void *invoker, OgeEventData data) {
+  const u64 callbacksCount =
+    ogeDArrayLength(s_eventsState.callbacks[code]);
   for (u64 i = 0; i < callbacksCount; ++i) {
-    const OgeEventCallback callback = s_eventsState.pDArrayCallbacks[code][i];
+    const OgeEventCallback callback = s_eventsState.callbacks[code][i];
 
     // If event was processed - stop
-    if(callback(sender, data)) { return; }
+    if(callback(invoker, data)) { return; }
   }
 }

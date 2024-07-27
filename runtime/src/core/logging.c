@@ -35,7 +35,7 @@ OgeLogLevel ogeLoggingGetLevel() {
   return ogeLoggingState.logLevel;
 }
 
-void ogeLog(OgeLogLevel level, const char *pMessage, ...) {
+void ogeLog(OgeLogLevel level, const char *msg, ...) {
   if (level < ogeLoggingState.logLevel) { return; }
 
   // TODO: These string operations are all pretty slow. This needs to be
@@ -58,8 +58,8 @@ void ogeLog(OgeLogLevel level, const char *pMessage, ...) {
   // a strange error here. The workaround for now is to just use __builtin_va_list,
   // which is the type GCC/Clang's va_start expects.
   __builtin_va_list valist;
-  va_start(valist, pMessage);
-  vsnprintf(formattedMessage, 4096, pMessage, valist);
+  va_start(valist, msg);
+  vsnprintf(formattedMessage, 4096, msg, valist);
   va_end(valist);
 
   // Prepend log level to message.
