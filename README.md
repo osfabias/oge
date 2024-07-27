@@ -10,8 +10,9 @@ Currently supported platforms:
 - CMake (version 2.16)
 
 ```shell
-git clone git@github.com:osfabias/opl.git
-cd opl
+git clone git@github.com:osfabias/oge.git
+cd oge
+git submodule update
 
 mkdir build
 cd build
