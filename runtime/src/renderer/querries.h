@@ -4,10 +4,10 @@
 
 #include "oge/defines.h"
 
-#include "types.inl"
+#include "types.h"
 
-// btw don't sure, that we can call this function a querry typa func, so...
-// think about it later
+// btw don't sure, that we can call this function a querry
+// typa func, so... think about it later
 OGE_INLINE void querryQueueFamilyIndicies(
   VkPhysicalDevice device,
   VkSurfaceKHR surface,

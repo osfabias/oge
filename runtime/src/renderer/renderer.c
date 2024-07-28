@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include <vulkan/vulkan.h>
@@ -12,11 +13,11 @@
 #include "oge/containers/darray.h"
 #include "oge/renderer/renderer.h"
 
-#include "types.inl"
-#include "querries.inl"
+#include "types.h"
+#include "querries.h"
 
 #ifdef OGE_DEBUG
-#include "debug.inl"
+#include "debug.h"
 #endif
 
 // TODO: write custom allocators for vulkan
@@ -47,6 +48,9 @@ struct {
   VkQueue presentQueue;
 
   VkRenderPass renderPass;
+
+  VkPipeline pipeline;
+  VkPipelineLayout pipelineLayout;
 
   VkAllocationCallbacks *pAllocator;
   #ifdef OGE_DEBUG
@@ -129,7 +133,8 @@ OGE_INLINE b8 createInstance(const OgeRendererInitInfo *pInitInfo) {
     .pApplicationName   = pInitInfo->applicationName,
     .applicationVersion = pInitInfo->applicationVersion,
     .pEngineName        = "Osfabias Game Engine",
-    .engineVersion      = VK_MAKE_VERSION(OGE_VERSION_MAJOR, OGE_VERSION_MINOR, 
+    .engineVersion      = VK_MAKE_VERSION(OGE_VERSION_MAJOR,
+                                          OGE_VERSION_MINOR, 
                                           OGE_VERSION_PATCH),
     .pNext              = 0,
   };
@@ -286,7 +291,7 @@ OGE_INLINE b8 selectGPU(/* requirements ? */) {
   VkPhysicalDevice devices[deviceCount];
   vkEnumeratePhysicalDevices(s_rendererState.instance, &deviceCount, devices);
 
-  for (uint32_t i = 0; i < deviceCount; ++i) {
+  for (u32 i = 0; i < deviceCount; ++i) {
     if (!isGPUSuitable(devices[i])) { continue; }
 
     s_rendererState.physicalDevice = devices[i];
@@ -361,7 +366,7 @@ OGE_INLINE b8 createLogicalDevice() {
   deviceFeatures.samplerAnisotropy = VK_TRUE;
 
   // Creation
-  VkDeviceCreateInfo info = {
+  const VkDeviceCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
     .flags = 0,
 
@@ -380,15 +385,19 @@ OGE_INLINE b8 createLogicalDevice() {
     .pNext = 0,
   };
 
-  VkResult result = vkCreateDevice(
-    s_rendererState.physicalDevice, &info,
-    s_rendererState.pAllocator, &s_rendererState.logicalDevice);
+  const VkResult result =
+    vkCreateDevice(s_rendererState.physicalDevice, &info,
+                   s_rendererState.pAllocator,
+                   &s_rendererState.logicalDevice);
   if (result != VK_SUCCESS) {
     OGE_ERROR("Failed to create Vulkan logical device: %d.", result);
     return OGE_FALSE;
   }
+ 
+  return OGE_TRUE;
+}
 
-  // Get queues
+void getQueues() {
   vkGetDeviceQueue(
     s_rendererState.logicalDevice,
     s_rendererState.queueFamilyIndicies.graphics,
@@ -409,8 +418,6 @@ OGE_INLINE b8 createLogicalDevice() {
     s_rendererState.queueFamilyIndicies.present,
     0, &s_rendererState.presentQueue);
   OGE_TRACE("Vulkan queues obtained.");
-  
-  return OGE_TRUE;
 }
 
 OGE_INLINE VkSurfaceFormatKHR chooseSurfaceFormat(
@@ -449,13 +456,13 @@ OGE_INLINE VkExtent2D chooseExtent(VkSurfaceCapabilitiesKHR surfaceCapabilities)
 OGE_INLINE b8 createSwapchain() {
   swapchainSupport swapchainSupport;
   querrySwapchainSupport(s_rendererState.physicalDevice,
-                            s_rendererState.surface, &swapchainSupport);
+                         s_rendererState.surface, &swapchainSupport);
 
-  VkSurfaceFormatKHR surfaceFormat =
+  const VkSurfaceFormatKHR surfaceFormat =
     chooseSurfaceFormat(swapchainSupport.pFormats,
                         swapchainSupport.formatCount);
 
-  VkPresentModeKHR presentMode =
+  const VkPresentModeKHR presentMode =
     choosePresentMode(swapchainSupport.pPresentModes,
                       swapchainSupport.presentModeCount);
 
@@ -465,14 +472,14 @@ OGE_INLINE b8 createSwapchain() {
   s_rendererState.swapchainFormat = surfaceFormat.format;
 
   // Creation
-  u32 queueFamilyIndicies[] = {
+  const u32 queueFamilyIndicies[] = {
     s_rendererState.queueFamilyIndicies.graphics,
     s_rendererState.queueFamilyIndicies.transfer,
     s_rendererState.queueFamilyIndicies.compute,
     s_rendererState.queueFamilyIndicies.present
   };
 
-  VkSwapchainCreateInfoKHR info = {
+  const VkSwapchainCreateInfoKHR info = {
     .sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
     .flags                 = 0,
     .surface               = s_rendererState.surface,
@@ -494,7 +501,7 @@ OGE_INLINE b8 createSwapchain() {
     .pNext                 = 0,
   };
 
-  VkResult result = vkCreateSwapchainKHR(
+  const VkResult result = vkCreateSwapchainKHR(
     s_rendererState.logicalDevice, &info, s_rendererState.pAllocator,
     &s_rendererState.swapchain);
   if (result != VK_SUCCESS) {
@@ -502,7 +509,10 @@ OGE_INLINE b8 createSwapchain() {
     return OGE_FALSE;
   }
   OGE_TRACE("Vulkan swapchain created.");
+  return OGE_TRUE;
+}
 
+void getSwapchainImages() {
   vkGetSwapchainImagesKHR(
     s_rendererState.logicalDevice, s_rendererState.swapchain,
     &s_rendererState.swapchainImageCount, 0);
@@ -515,9 +525,7 @@ OGE_INLINE b8 createSwapchain() {
     s_rendererState.logicalDevice, s_rendererState.swapchain,
     &s_rendererState.swapchainImageCount, s_rendererState.swapchainImages);
 
-  OGE_TRACE("Vulkan swapchain images are got.");
-
-  return OGE_TRUE;
+  OGE_TRACE("Vulkan swapchain images obtained.");
 }
 
 b8 createSwapchainImageViews() {
@@ -618,11 +626,274 @@ b8 createRenderPass() {
   return OGE_TRUE;
 }
 
+b8 createGraphicsPipelineLayout() {
+  const VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+    .sType                  =
+      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    .pNext                  = 0,
+    .flags                  = 0,
+    .pushConstantRangeCount = 0,
+    .pPushConstantRanges    = 0,
+    .setLayoutCount         = 0,
+    .pSetLayouts            = 0,
+  };
+
+  VkResult result =
+    vkCreatePipelineLayout(s_rendererState.logicalDevice,
+                           &pipelineLayoutInfo,
+                           s_rendererState.pAllocator,
+                           &s_rendererState.pipelineLayout);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan graphics pipeline layout.");
+    return OGE_FALSE;
+  }
+  OGE_TRACE("Vulkan graphics pipeline layout created.");
+  return OGE_TRUE;
+}
+
+b8 createShaderModule(const char *fileName, VkShaderModule *module) {
+  OGE_WARN("createShaderModule() uses standart C file I/O functions, replace them with OGE file I/O system calls.");
+
+  FILE *shaderCodeFile = fopen(fileName, "rb");
+
+  if (!shaderCodeFile) {
+    OGE_ERROR("createShaderModule(): failed to open \"%s\" file.",
+              fileName);
+    return OGE_FALSE;
+  }
+
+  fseek(shaderCodeFile, 0, SEEK_END);
+  const u64 shaderCodeSize = ftell(shaderCodeFile);
+  rewind(shaderCodeFile);
+
+  const char *shaderCode[shaderCodeSize];
+  fread(shaderCode, sizeof(shaderCode), 1, shaderCodeFile);
+
+  fclose(shaderCodeFile);
+
+  const VkShaderModuleCreateInfo info = {
+    .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    .pNext    = 0,
+    .flags    = 0,
+    .codeSize = shaderCodeSize,
+    .pCode    = (u32*)shaderCode,
+  };
+
+  const VkResult result =
+    vkCreateShaderModule(s_rendererState.logicalDevice, &info,
+                         s_rendererState.pAllocator, module);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create shader module: \"%s\".", fileName);
+    return OGE_FALSE;
+  }
+  OGE_TRACE("Shader module created: %s.", fileName);
+  return OGE_TRUE;
+}
+
+b8 createGraphicsPipeline(const OgeRendererInitInfo *initInfo) {
+  VkShaderModule vertShaderModule, fragShaderModule;
+
+  if (!createShaderModule(initInfo->vertexShaderFileName,
+                          &vertShaderModule)) {
+    return OGE_FALSE;
+  }
+
+  if (!createShaderModule(initInfo->fragmentShaderFileName,
+                          &fragShaderModule)) {
+    return OGE_FALSE;
+  }
+
+  const VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
+    .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .pNext               = 0,
+    .flags               = 0,
+    .stage               = VK_SHADER_STAGE_VERTEX_BIT,
+    .module              = vertShaderModule,
+    .pName               = "main",
+    .pSpecializationInfo = 0,
+  };
+
+  const VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
+    .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .pNext               = 0,
+    .flags               = 0,
+    .stage               = VK_SHADER_STAGE_FRAGMENT_BIT,
+    .module              = fragShaderModule,
+    .pName               = "main",
+    .pSpecializationInfo = 0,
+  };
+
+  const VkPipelineShaderStageCreateInfo shaderStages[] = {
+    vertShaderStageInfo,
+    fragShaderStageInfo,
+  };
+
+  // TODO: move configurable
+  OGE_WARN("Currently vertex binding and attribute descriptions are hardcoded in createGraphicsPipeline(), make this configurable.");
+  const VkVertexInputBindingDescription vertexBindingDescription = {
+    .binding   = 0,
+    .stride    = sizeof(f32) * 3,
+    .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+  };
+
+  const VkVertexInputAttributeDescription vertexAttributeDescription = {
+    .location = 0,
+    .binding  = 0,
+    .format   = VK_FORMAT_R32G32B32_SFLOAT,
+    .offset   = 0,
+  };
+
+  const VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = {
+    .sType                           =
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    .pNext                           = 0,
+    .flags                           = 0,
+    .vertexBindingDescriptionCount   = 1,
+    .pVertexBindingDescriptions      = &vertexBindingDescription,
+    .vertexAttributeDescriptionCount = 1,
+    .pVertexAttributeDescriptions    = &vertexAttributeDescription,
+  };
+
+  const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateInfo = {
+    .sType                  =
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+    .pNext                  = 0,
+    .flags                  = 0,
+    .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    .primitiveRestartEnable = VK_FALSE,
+  };
+
+  const VkPipelineViewportStateCreateInfo viewportStateInfo = {
+    .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    .pNext         = 0,
+    .flags         = 0,
+    .viewportCount = 1,
+    .pViewports    = 0, // the viewport state is dynamic,
+                        // so this member ignored
+    .scissorCount  = 1,
+    .pScissors     = 0, // the scissor state is dynamic,
+                        // so this member ignored
+  };
+
+  const VkPipelineRasterizationStateCreateInfo rasterizationStateInfo = {
+    .sType                   =
+      VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .pNext                   = 0,
+    .flags                   = 0,
+    .depthClampEnable        = VK_FALSE,
+    .rasterizerDiscardEnable = VK_FALSE,
+    .polygonMode             = VK_POLYGON_MODE_FILL,
+    .lineWidth               = 1.0f,
+    .cullMode                = VK_CULL_MODE_BACK_BIT,
+    .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+    .depthBiasEnable         = VK_FALSE,
+  };
+
+  const VkPipelineMultisampleStateCreateInfo multisampleStateInfo = {
+    .sType                 =
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+    .pNext                 = 0,
+    .flags                 = 0,
+    .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
+    .sampleShadingEnable   = VK_FALSE,
+    .minSampleShading      = 1.0f,
+    .pSampleMask           = 0,
+    .alphaToCoverageEnable = VK_FALSE,
+    .alphaToOneEnable      = VK_FALSE,
+  };
+
+  const VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {
+    .blendEnable         = VK_FALSE,
+    .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
+    .colorBlendOp        = VK_BLEND_OP_ADD,
+    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+    .alphaBlendOp        = VK_BLEND_OP_ADD,
+    .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
+                           VK_COLOR_COMPONENT_G_BIT |
+                           VK_COLOR_COMPONENT_B_BIT |
+                           VK_COLOR_COMPONENT_A_BIT,
+  };
+
+  const VkPipelineColorBlendStateCreateInfo colorBlendStateInfo = {
+    .sType             =
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    .pNext             = 0,
+    .flags             = 0,
+    .logicOpEnable     = VK_FALSE,
+    .logicOp           = 0,
+    .attachmentCount   = 1,
+    .pAttachments      = &colorBlendAttachmentState,
+    .blendConstants[0] = 1.0f,
+    .blendConstants[1] = 1.0f,
+    .blendConstants[2] = 1.0f,
+    .blendConstants[3] = 1.0f,
+  };
+
+  const VkDynamicState dynamicStates[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
+  };
+
+  const VkPipelineDynamicStateCreateInfo dynamicStateInfo = {
+    .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+    .pNext             = 0,
+    .flags             = 0,
+    .dynamicStateCount = 2,
+    .pDynamicStates    = dynamicStates,
+  };
+
+  VkGraphicsPipelineCreateInfo pipelineInfo = {
+    .sType               =
+      VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    .pNext               = 0,
+    .flags               = 0,
+    .stageCount          = 2,
+    .pStages             = shaderStages,
+    .pVertexInputState   = &vertexInputStateInfo,
+    .pInputAssemblyState = &inputAssemblyStateInfo,
+    .pViewportState      = &viewportStateInfo,
+    .pRasterizationState = &rasterizationStateInfo,
+    .pMultisampleState   = &multisampleStateInfo,
+    .pColorBlendState    = &colorBlendStateInfo,
+    .pDynamicState       = &dynamicStateInfo,
+    .layout              = s_rendererState.pipelineLayout,
+    .renderPass          = s_rendererState.renderPass,
+    .subpass             = 0,
+    .basePipelineHandle  = VK_NULL_HANDLE,
+  };
+
+  const VkResult result =
+    vkCreateGraphicsPipelines(s_rendererState.logicalDevice,
+                              VK_NULL_HANDLE, 1,
+                              &pipelineInfo,
+                              s_rendererState.pAllocator,
+                              &s_rendererState.pipeline);
+
+  vkDestroyShaderModule(s_rendererState.logicalDevice,
+                        fragShaderModule,
+                        s_rendererState.pAllocator);
+
+  vkDestroyShaderModule(s_rendererState.logicalDevice,
+                        vertShaderModule,
+                        s_rendererState.pAllocator);
+
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan graphics pipeline.");
+    return OGE_FALSE;
+  }
+  OGE_TRACE("Vulkan graphics pipeline created.");
+  return OGE_TRUE;
+}
+
 b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
   OGE_ASSERT(
     !s_rendererState.initialized,
     "Trying to initialize renderer while it's already initialized."
   );
+
+  OGE_WARN("Vulkan uses default allocator, write custom one.");
 
   OGE_TRACE("Initializing renderer.");
 
@@ -632,12 +903,20 @@ b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
   createDebugMessenger();
   #endif
 
-  if (!createSurface())             { return OGE_FALSE; }
-  if (!selectGPU())                 { return OGE_FALSE; }
-  if (!createLogicalDevice())       { return OGE_FALSE; }
-  if (!createSwapchain())           { return OGE_FALSE; }
-  if (!createSwapchainImageViews()) { return OGE_FALSE; }
-  if (!createRenderPass())          { return OGE_FALSE; }
+  if (!createSurface())                   { return OGE_FALSE; }
+  if (!selectGPU())                       { return OGE_FALSE; }
+  if (!createLogicalDevice())             { return OGE_FALSE; }
+
+  getQueues();
+
+  if (!createSwapchain())                 { return OGE_FALSE; }
+
+  getSwapchainImages();
+
+  if (!createSwapchainImageViews())       { return OGE_FALSE; }
+  if (!createRenderPass())                { return OGE_FALSE; }
+  if (!createGraphicsPipelineLayout())    { return OGE_FALSE; }
+  if (!createGraphicsPipeline(pInitInfo)) { return OGE_FALSE; }
 
   s_rendererState.initialized = OGE_TRUE;
   OGE_TRACE("Renderer initialized.");
@@ -651,6 +930,15 @@ void ogeRendererTerminate() {
   );
 
   OGE_TRACE("Terminating Vulkan renderer.");
+
+
+  vkDestroyPipeline(s_rendererState.logicalDevice,
+                    s_rendererState.pipeline,
+                    s_rendererState.pAllocator);
+
+  vkDestroyPipelineLayout(s_rendererState.logicalDevice,
+                          s_rendererState.pipelineLayout,
+                          s_rendererState.pAllocator);
 
   vkDestroyRenderPass(s_rendererState.logicalDevice,
                       s_rendererState.renderPass,

@@ -9,13 +9,15 @@ const OgeLoggingInitInfo loggingInitInfo = {
 
 const OplInitInfo oplInitInfo = {
   .pApplicationName = "OGE application",
-  .surfaceWidth     = 1280,
-  .surfaceHeight    = 720,
+  .surfaceWidth     = 640,
+  .surfaceHeight    = 360,
 };
 
 const OgeRendererInitInfo rendererInitInfo = {
-  .applicationVersion = OGE_MAKE_VERSION(0, 0, 1),
-  .applicationName    = "OGE application",
+  .applicationVersion     = OGE_MAKE_VERSION(0, 0, 1),
+  .applicationName        = "OGE application",
+  .vertexShaderFileName   = "shaders/spir-v/main-vert.spv",
+  .fragmentShaderFileName = "shaders/spir-v/main-frag.spv",
 };
 
 const OgeInitInfo ogeInitInfo = {

@@ -31,7 +31,9 @@
  */
 typedef struct OgeRendererInitInfo {
   const char *applicationName;
-  const u32 applicationVersion;
+  u32 applicationVersion;
+  const char *vertexShaderFileName;
+  const char *fragmentShaderFileName;
 } OgeRendererInitInfo;
 
 /**

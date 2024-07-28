@@ -1,8 +1,5 @@
 project(oge VERSION 0.0.1)
 
-# ~ build libraries
-add_subdirectory(lib)
-
 # ~ find packages
 find_package(Vulkan REQUIRED)
 
@@ -35,3 +32,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
   target_compile_definitions(oge PRIVATE OGE_RELEASE)
 endif()
+
+# ~ configure libraries
+add_subdirectory(lib)

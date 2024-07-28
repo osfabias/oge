@@ -1,3 +1,6 @@
+# SPIR-V
+*.spv
+
 # doxygen
 doc
 
