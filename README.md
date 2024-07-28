@@ -18,7 +18,7 @@ git submodule init
 git submodule update
 ```
 
-### 2. Configure project via CMake.
+### 2. Configure and build project via CMake.
 ```shell
 # from oge/
 mkdir build
