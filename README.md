@@ -38,6 +38,7 @@ You're done!
 
 # Documentation
 ```shell
+# from oge/
 doxygen
 cd doc/html
 open index.html
