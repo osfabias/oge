@@ -4,7 +4,7 @@
 Currently supported platforms:
 - MacOS.
 
-# How to build
+# Quick start
 Requirements:
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) (latest version)
 - CMake (version 2.16+)
