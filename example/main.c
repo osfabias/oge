@@ -1,5 +1,4 @@
 #include "oge/oge.h"
-#include "oge/renderer/renderer.h"
 
 // OGE configuration
 const OgeLoggingInitInfo loggingInitInfo = {
