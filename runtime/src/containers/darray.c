@@ -9,7 +9,7 @@ typedef struct OgeDArrayHeader {
   u64 stride;
 } OgeDArrayHeader;
 
-#define DARRAY_RESIZE_FACTOR 1.5f
+#define DARRAY_RESIZE_FACTOR 2.0f
 
 #define DARRAY_SIZE(length, stride) \
   sizeof(OgeDArrayHeader) + (length) * (stride)
