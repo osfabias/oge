@@ -8,7 +8,7 @@ const OgeLoggingInitInfo loggingInitInfo = {
 };
 
 const OplInitInfo oplInitInfo = {
-  .pApplicationName = "OGE application",
+  .applicationName = "OGE application",
   .surfaceWidth     = 640,
   .surfaceHeight    = 360,
 };
