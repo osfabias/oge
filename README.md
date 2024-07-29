@@ -4,7 +4,7 @@
 Currently supported platforms:
 - MacOS.
 
-# How to build
+# Quick start
 Requirements:
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) (latest version)
 - CMake (version 2.16+)
@@ -18,7 +18,7 @@ git submodule init
 git submodule update
 ```
 
-### 2. Configure project via CMake.
+### 2. Configure and build project via CMake.
 ```shell
 # from oge/
 mkdir build
@@ -38,6 +38,7 @@ You're done!
 
 # Documentation
 ```shell
+# from oge/
 doxygen
 cd doc/html
 open index.html
