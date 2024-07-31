@@ -61,11 +61,15 @@ struct {
 };
 
 const char *s_ppRequiredDeviceExtensions[] = {
-#ifdef   OGE_PLATFORM_APPLE
+#ifdef OGE_PLATFORM_APPLE
   #define REQUIRED_DEVICE_EXTENSIONS_COUNT 2
 
   VK_KHR_SWAPCHAIN_EXTENSION_NAME,
   "VK_KHR_portability_subset",
+#elif OGE_PLATFORM_LINUX
+  #define REQUIRED_DEVICE_EXTENSIONS_COUNT 1
+
+  VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 #else
   #error "Device extensions for this platform aren't defined."
 #endif
