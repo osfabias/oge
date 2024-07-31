@@ -1,3 +1,4 @@
+#include "oge/core/platform.h"
 #include "oge/oge.h"
 
 // OGE configuration
@@ -6,10 +7,10 @@ const OgeLoggingInitInfo loggingInitInfo = {
   .fileName  = "logs.txt",
 };
 
-const OplInitInfo oplInitInfo = {
+const OgePlatformInitInfo platformInitInfo = {
   .applicationName = "OGE application",
-  .surfaceWidth     = 640,
-  .surfaceHeight    = 360,
+  .width           = 640,
+  .height          = 360,
 };
 
 const OgeRendererInitInfo rendererInitInfo = {
@@ -21,7 +22,7 @@ const OgeRendererInitInfo rendererInitInfo = {
 
 const OgeInitInfo ogeInitInfo = {
   .loggingInitInfo  = &loggingInitInfo,
-  .oplInitInfo      = &oplInitInfo,
+  .platformInitInfo = &platformInitInfo,
   .rendererInitInfo = &rendererInitInfo,
 };
 

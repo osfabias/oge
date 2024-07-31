@@ -10,6 +10,7 @@ add_library(oge SHARED
   ./src/core/memory.c
   ./src/core/events.c
   ./src/core/logging.c
+  ./src/core/platform.c
 
   ./src/renderer/renderer.c
 

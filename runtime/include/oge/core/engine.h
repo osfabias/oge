@@ -18,10 +18,9 @@
  */
 #pragma once
 
-#include <opl/opl.h>
-
 #include "oge/defines.h"
 #include "oge/core/logging.h"
+#include "oge/core/platform.h"
 #include "oge/renderer/renderer.h"
 
 // forward decl for struct from oge/core/application.h
@@ -40,8 +39,8 @@ typedef struct OgeApplication OgeApplication;
  * A pointer to a OgeRendererInitInfo struct.
  */
 typedef struct OgeInitInfo {
-  const OplInitInfo         *oplInitInfo;
   const OgeLoggingInitInfo  *loggingInitInfo;
+  const OgePlatformInitInfo *platformInitInfo;
   const OgeRendererInitInfo *rendererInitInfo;
 } OgeInitInfo;
 

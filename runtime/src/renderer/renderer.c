@@ -3,12 +3,10 @@
 
 #include <vulkan/vulkan.h>
 
-#include <opl/opl.h>
-#include <vulkan/vulkan_core.h>
-
 #include "oge/defines.h"
 #include "oge/core/memory.h"
 #include "oge/core/logging.h"
+#include "oge/core/platform.h"
 #include "oge/core/assertion.h"
 #include "oge/containers/darray.h"
 #include "oge/renderer/renderer.h"
@@ -148,20 +146,21 @@ OGE_INLINE b8 createInstance(const OgeRendererInitInfo *pInitInfo) {
     .ppEnabledLayerNames = 0,
   };
 
-  u16 extensionCount = oplVkExtensions(0);
-  const char* ppExtensionNames[extensionCount];
-  oplVkExtensions(ppExtensionNames);
+  u32 extensionsCount;
+  ogePlatformGetDeviceExtensions(&extensionsCount, 0);
+  const char* extensionNames[extensionsCount];
+  ogePlatformGetDeviceExtensions(&extensionsCount, extensionNames);
 
-  const char* *ppExtensions =
-    ogeDArrayAlloc(extensionCount, sizeof(char*));
-  ppExtensions =
-    ogeDArrayExtend(ppExtensions, ppExtensionNames, extensionCount);
+  const char* *extensions =
+    ogeDArrayAlloc(extensionsCount, sizeof(char*));
+  extensions =
+    ogeDArrayExtend(extensions, extensionNames, extensionsCount);
 
   #ifdef OGE_PLATFORM_APPLE
   const char *pPortabilityExtensionName = 
     VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-  ppExtensions =
-    ogeDArrayAppend(ppExtensions, &pPortabilityExtensionName);
+  extensions =
+    ogeDArrayAppend(extensions, &pPortabilityExtensionName);
 
   info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   #endif
@@ -174,18 +173,18 @@ OGE_INLINE b8 createInstance(const OgeRendererInitInfo *pInitInfo) {
     info.ppEnabledLayerNames = &pValidationLayerName;
 
     const char *pDebugExtensionName = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-    ppExtensions = ogeDArrayAppend(ppExtensions, &pDebugExtensionName);
+    extensions = ogeDArrayAppend(extensions, &pDebugExtensionName);
   }
   #endif
 
-  info.enabledExtensionCount   = ogeDArrayLength(ppExtensions);
-  info.ppEnabledExtensionNames = ppExtensions;
+  info.enabledExtensionCount   = ogeDArrayLength(extensions);
+  info.ppEnabledExtensionNames = extensions;
 
   const VkResult result = 
     vkCreateInstance(&info, s_rendererState.pAllocator,
                      &s_rendererState.instance);
 
-  ogeDArrayFree(ppExtensions);
+  ogeDArrayFree(extensions);
 
   if (result != VK_SUCCESS) {
     OGE_ERROR("Failed to create Vulkan instance: %d.", result);
@@ -200,7 +199,7 @@ OGE_INLINE b8 createSurface() {
   OGE_TRACE("Creating Vulkan surface.");
 
   const VkResult result =
-    oplCreateVkSurface(s_rendererState.instance,
+    ogePlatformCreateSurface(s_rendererState.instance,
       s_rendererState.pAllocator, &s_rendererState.surface);
 
   if (result != VK_SUCCESS) {
