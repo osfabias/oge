@@ -1,5 +1,6 @@
 #include "oge/core/platform.h"
 #include "oge/oge.h"
+#include "oge/renderer/renderer.h"
 
 // OGE configuration
 const OgeLoggingInitInfo loggingInitInfo = {
@@ -18,6 +19,7 @@ const OgeRendererInitInfo rendererInitInfo = {
   .applicationName        = "OGE application",
   .vertexShaderFileName   = "shaders/spir-v/main-vert.spv",
   .fragmentShaderFileName = "shaders/spir-v/main-frag.spv",
+  .clearColor             = { 0.0f, 0.8f, 0.3f, 1.0f }
 };
 
 const OgeInitInfo ogeInitInfo = {
@@ -36,6 +38,8 @@ b8 applicationUpdate(void *pState) {
 }
 
 b8 applicationRender(void *pState) {
+  ogeRendererStartScene();
+  ogeRendererEndScene();
   return OGE_TRUE;
 }
 

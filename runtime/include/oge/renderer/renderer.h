@@ -20,6 +20,10 @@
 
 #include "oge/defines.h"
 
+typedef struct OgeColor {
+  f32 r, g, b, a;
+} OgeColor;
+
 /**
  * @brief Renderer initialization info
  *
@@ -34,6 +38,7 @@ typedef struct OgeRendererInitInfo {
   u32 applicationVersion;
   const char *vertexShaderFileName;
   const char *fragmentShaderFileName;
+  OgeColor clearColor;
 } OgeRendererInitInfo;
 
 /**
@@ -48,3 +53,18 @@ b8 ogeRendererInit(const OgeRendererInitInfo *initInfo);
  * @brief Terminates renderer.
  */
 void ogeRendererTerminate();
+
+/**
+ * @brief Starts scene rendering preparation.
+ */
+OGE_API void ogeRendererStartScene();
+
+/**
+ * @brief Ends scene rendering preparation.
+ */
+OGE_API void ogeRendererEndScene();
+
+/**
+ * @brief Waits for the end of rendering.
+ */
+void ogeRendererWaitIdle();

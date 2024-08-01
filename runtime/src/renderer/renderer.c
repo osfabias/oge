@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "oge/defines.h"
 #include "oge/core/memory.h"
@@ -18,6 +19,8 @@
 #include "debug.h"
 #endif
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 // TODO: write custom allocators for vulkan
 struct {
   b8 initialized;
@@ -32,6 +35,7 @@ struct {
   u32 swapchainImageCount;
   VkImage *swapchainImages;
   VkImageView *swapchainImageViews;
+  VkFramebuffer *framebuffers;
 
   VkPhysicalDevice physicalDevice;
   VkPhysicalDeviceFeatures physicalDeviceFeatures;
@@ -40,22 +44,47 @@ struct {
   queueFamilyIndicies queueFamilyIndicies;
 
   VkDevice logicalDevice;
-  VkQueue graphicsQueue;
-  VkQueue transferQueue;
-  VkQueue computeQueue;
-  VkQueue presentQueue;
+  struct {
+    VkQueue graphics;
+    VkQueue transfer;
+    VkQueue compute;
+    VkQueue present;
+  } queues;
 
   VkRenderPass renderPass;
 
-  VkPipeline pipeline;
-  VkPipelineLayout pipelineLayout;
+  VkPipeline graphicsPipeline;
+  VkPipelineLayout graphicsPipelineLayout;
+
+  struct {
+    VkCommandPool graphics;
+    VkCommandPool transfer;
+    VkCommandPool compute;
+    VkCommandPool present;
+  } commandPools;
+
+  struct {
+    VkCommandBuffer *graphics;
+    VkCommandBuffer *transfer;
+    VkCommandBuffer *compute;
+    VkCommandBuffer *present;
+  } commandBuffers;
+
+  VkSemaphore *imageAvailableSemaphores;
+  VkSemaphore *renderFinishedSemaphores;
+  VkFence *inFlightFences;
+
+  u32 currentFrameIndex;
+  u32 currentImageIndex;
+  VkClearValue frameClearColor;
 
   VkAllocationCallbacks *pAllocator;
   #ifdef OGE_DEBUG
   VkDebugUtilsMessengerEXT debugMessenger;
   #endif
 } s_rendererState = {
-  .initialized = OGE_FALSE,
+  .initialized       = OGE_FALSE,
+  .currentFrameIndex = 0,
 
   .pAllocator = 0, // temporary, while custom allocator isn't written
 };
@@ -404,22 +433,22 @@ void getQueues() {
   vkGetDeviceQueue(
     s_rendererState.logicalDevice,
     s_rendererState.queueFamilyIndicies.graphics,
-    0, &s_rendererState.graphicsQueue);
+    0, &s_rendererState.queues.graphics);
 
   vkGetDeviceQueue(
     s_rendererState.logicalDevice,
     s_rendererState.queueFamilyIndicies.transfer,
-    0, &s_rendererState.transferQueue);
+    0, &s_rendererState.queues.transfer);
 
   vkGetDeviceQueue(
     s_rendererState.logicalDevice,
     s_rendererState.queueFamilyIndicies.compute,
-    0, &s_rendererState.computeQueue);
+    0, &s_rendererState.queues.compute);
 
   vkGetDeviceQueue(
     s_rendererState.logicalDevice,
     s_rendererState.queueFamilyIndicies.present,
-    0, &s_rendererState.presentQueue);
+    0, &s_rendererState.queues.present);
   OGE_TRACE("Vulkan queues obtained.");
 }
 
@@ -645,7 +674,7 @@ b8 createGraphicsPipelineLayout() {
     vkCreatePipelineLayout(s_rendererState.logicalDevice,
                            &pipelineLayoutInfo,
                            s_rendererState.pAllocator,
-                           &s_rendererState.pipelineLayout);
+                           &s_rendererState.graphicsPipelineLayout);
   if (result != VK_SUCCESS) {
     OGE_ERROR("Failed to create Vulkan graphics pipeline layout.");
     return OGE_FALSE;
@@ -861,7 +890,7 @@ b8 createGraphicsPipeline(const OgeRendererInitInfo *initInfo) {
     .pMultisampleState   = &multisampleStateInfo,
     .pColorBlendState    = &colorBlendStateInfo,
     .pDynamicState       = &dynamicStateInfo,
-    .layout              = s_rendererState.pipelineLayout,
+    .layout              = s_rendererState.graphicsPipelineLayout,
     .renderPass          = s_rendererState.renderPass,
     .subpass             = 0,
     .basePipelineHandle  = VK_NULL_HANDLE,
@@ -872,7 +901,7 @@ b8 createGraphicsPipeline(const OgeRendererInitInfo *initInfo) {
                               VK_NULL_HANDLE, 1,
                               &pipelineInfo,
                               s_rendererState.pAllocator,
-                              &s_rendererState.pipeline);
+                              &s_rendererState.graphicsPipeline);
 
   vkDestroyShaderModule(s_rendererState.logicalDevice,
                         fragShaderModule,
@@ -890,7 +919,251 @@ b8 createGraphicsPipeline(const OgeRendererInitInfo *initInfo) {
   return OGE_TRUE;
 }
 
-b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
+b8 createFramebuffers() {
+  s_rendererState.framebuffers =
+    ogeAlloc(sizeof(VkFramebuffer) * s_rendererState.swapchainImageCount,
+             OGE_MEMORY_TAG_RENDERER);
+
+  for (u32 i = 0; i < s_rendererState.swapchainImageCount; ++i) {
+    const VkFramebufferCreateInfo info = {
+      .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+      .pNext           = 0,
+      .flags           = 0,
+      .attachmentCount = 1,
+      .pAttachments    = &s_rendererState.swapchainImageViews[i],
+      .width           = s_rendererState.swapchainExtent.width,
+      .height          = s_rendererState.swapchainExtent.height,
+      .layers          = 1,
+      .renderPass      = s_rendererState.renderPass,
+    };
+
+    const VkResult result =
+      vkCreateFramebuffer(s_rendererState.logicalDevice, &info,
+                          s_rendererState.pAllocator,
+                          &s_rendererState.framebuffers[i]);
+    if (result != VK_SUCCESS) {
+      OGE_ERROR("Failed to create framebuffer: %d.", result);
+      return OGE_FALSE;
+    }
+  }
+  OGE_TRACE("Vulkan framebuffers created.");
+  return OGE_TRUE;
+}
+
+b8 createCommandPools() {
+  const VkCommandPoolCreateInfo graphicsPoolInfo = {
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .pNext            = 0,
+    .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = s_rendererState.queueFamilyIndicies.graphics,
+  };
+
+  VkResult result = 
+    vkCreateCommandPool(s_rendererState.logicalDevice, &graphicsPoolInfo,
+                        s_rendererState.pAllocator,
+                        &s_rendererState.commandPools.graphics);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create graphics command pool.");
+    return OGE_FALSE;
+  }
+
+  const VkCommandPoolCreateInfo transferPoolInfo = {
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .pNext            = 0,
+    .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = s_rendererState.queueFamilyIndicies.transfer,
+  };
+
+  result = vkCreateCommandPool(s_rendererState.logicalDevice, &transferPoolInfo,
+                               s_rendererState.pAllocator,
+                               &s_rendererState.commandPools.transfer);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create transfer command pool.");
+    return OGE_FALSE;
+  }
+
+  const VkCommandPoolCreateInfo computePoolInfo = {
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .pNext            = 0,
+    .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = s_rendererState.queueFamilyIndicies.compute,
+  };
+
+  result = vkCreateCommandPool(s_rendererState.logicalDevice, &computePoolInfo,
+                               s_rendererState.pAllocator,
+                               &s_rendererState.commandPools.compute);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create compute command pool.");
+    return OGE_FALSE;
+  }
+
+  const VkCommandPoolCreateInfo presentPoolInfo = {
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+    .pNext            = 0,
+    .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+    .queueFamilyIndex = s_rendererState.queueFamilyIndicies.present,
+  };
+
+  result = vkCreateCommandPool(s_rendererState.logicalDevice, &presentPoolInfo,
+                               s_rendererState.pAllocator,
+                               &s_rendererState.commandPools.present);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create present command pool.");
+    return OGE_FALSE;
+  }
+
+  OGE_TRACE("Vulkan command pools created.");
+  return OGE_TRUE;
+}
+
+b8 createCommandBuffers() {
+  // Graphics command buffers
+  const VkCommandBufferAllocateInfo graphicsBufferInfo = {
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = 0,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool        = s_rendererState.commandPools.graphics,
+    .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
+  };
+
+  s_rendererState.commandBuffers.graphics =
+    ogeAlloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  VkResult result =
+    vkAllocateCommandBuffers(s_rendererState.logicalDevice,
+                             &graphicsBufferInfo,
+                             s_rendererState.commandBuffers.graphics);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan graphics command buffers.");
+    return OGE_FALSE;
+  }
+
+  // Transfer command buffers
+  const VkCommandBufferAllocateInfo transferBufferInfo = {
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = 0,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool        = s_rendererState.commandPools.transfer,
+    .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
+  };
+
+  s_rendererState.commandBuffers.transfer =
+    ogeAlloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  result = vkAllocateCommandBuffers(s_rendererState.logicalDevice,
+                                    &transferBufferInfo,
+                                    s_rendererState.commandBuffers.transfer);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan transfer command buffers.");
+    return OGE_FALSE;
+  }
+
+  // Compute command buffers
+  const VkCommandBufferAllocateInfo computeBufferInfo = {
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = 0,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool        = s_rendererState.commandPools.compute,
+    .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
+  };
+
+  s_rendererState.commandBuffers.compute =
+    ogeAlloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  result = vkAllocateCommandBuffers(s_rendererState.logicalDevice,
+                                    &computeBufferInfo,
+                                    s_rendererState.commandBuffers.compute);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan compute command buffers.");
+    return OGE_FALSE;
+  }
+
+  // Present command buffers
+  const VkCommandBufferAllocateInfo presentBufferInfo = {
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = 0,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+    .commandPool        = s_rendererState.commandPools.present,
+    .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
+  };
+
+  s_rendererState.commandBuffers.present =
+    ogeAlloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  result = vkAllocateCommandBuffers(s_rendererState.logicalDevice,
+                                    &presentBufferInfo,
+                                    s_rendererState.commandBuffers.present);
+  if (result != VK_SUCCESS) {
+    OGE_ERROR("Failed to create Vulkan present command buffers.");
+    return OGE_FALSE;
+  }
+  
+  OGE_TRACE("Vulkan command buffers created.");
+  return OGE_TRUE;
+}
+
+b8 createSyncObjects() {
+  const VkSemaphoreCreateInfo semaphoreInfo = {
+    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    .pNext = 0,
+    .flags = 0,
+  };
+
+  const VkFenceCreateInfo fenceInfo = {
+    .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    .pNext = 0,
+    .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+  };
+
+  s_rendererState.imageAvailableSemaphores =
+    ogeAlloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  s_rendererState.renderFinishedSemaphores =
+    ogeAlloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  s_rendererState.inFlightFences =
+    ogeAlloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT,
+             OGE_MEMORY_TAG_RENDERER);
+
+  for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+  {
+    VkResult result1 =
+      vkCreateSemaphore(s_rendererState.logicalDevice,
+                        &semaphoreInfo,
+                        s_rendererState.pAllocator,
+                        &s_rendererState.imageAvailableSemaphores[i]);
+
+    VkResult result2 =
+      vkCreateSemaphore(s_rendererState.logicalDevice,
+                        &semaphoreInfo,
+                        s_rendererState.pAllocator,
+                        &s_rendererState.renderFinishedSemaphores[i]);
+
+    VkResult result3 =
+      vkCreateFence(s_rendererState.logicalDevice,
+                    &fenceInfo,
+                    s_rendererState.pAllocator,
+                    &s_rendererState.inFlightFences[i]);
+
+    if (result1 != VK_SUCCESS ||
+        result2 != VK_SUCCESS ||
+        result3 != VK_SUCCESS) {
+      OGE_ERROR("Failed to create sync objects:");
+      return OGE_FALSE;
+    }
+  }
+
+  OGE_TRACE("Vulkan sync objects created.");
+  return OGE_TRUE;
+}
+
+b8 ogeRendererInit(const OgeRendererInitInfo *initInfo) {
   OGE_ASSERT(
     !s_rendererState.initialized,
     "Trying to initialize renderer while it's already initialized."
@@ -898,9 +1171,17 @@ b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
 
   OGE_WARN("Vulkan uses default allocator, write custom one.");
 
-  OGE_TRACE("Initializing renderer.");
+  const VkClearValue clearColor = {
+    .color = {
+      initInfo->clearColor.r,
+      initInfo->clearColor.g,
+      initInfo->clearColor.b,
+      initInfo->clearColor.a,
+    },
+  };
+  s_rendererState.frameClearColor = clearColor;
 
-  if (!createInstance(pInitInfo)) { return OGE_FALSE; }
+  if (!createInstance(initInfo)) { return OGE_FALSE; }
 
   #ifdef OGE_DEBUG
   createDebugMessenger();
@@ -916,13 +1197,17 @@ b8 ogeRendererInit(const OgeRendererInitInfo *pInitInfo) {
 
   getSwapchainImages();
 
-  if (!createSwapchainImageViews())       { return OGE_FALSE; }
-  if (!createRenderPass())                { return OGE_FALSE; }
-  if (!createGraphicsPipelineLayout())    { return OGE_FALSE; }
-  if (!createGraphicsPipeline(pInitInfo)) { return OGE_FALSE; }
+  if (!createSwapchainImageViews())      { return OGE_FALSE; }
+  if (!createRenderPass())               { return OGE_FALSE; }
+  if (!createGraphicsPipelineLayout())   { return OGE_FALSE; }
+  if (!createGraphicsPipeline(initInfo)) { return OGE_FALSE; }
+  if (!createFramebuffers())             { return OGE_FALSE; }
+  if (!createCommandPools())             { return OGE_FALSE; }
+  if (!createCommandBuffers())           { return OGE_FALSE; }
+  if (!createSyncObjects())              { return OGE_FALSE; }
 
   s_rendererState.initialized = OGE_TRUE;
-  OGE_TRACE("Renderer initialized.");
+  OGE_INFO("Renderer initialized.");
   return OGE_TRUE;
 }
 
@@ -933,25 +1218,96 @@ void ogeRendererTerminate() {
   );
 
   OGE_TRACE("Terminating Vulkan renderer.");
+  
+  // Sync objects
+  for (u32 i = 0; i < s_rendererState.swapchainImageCount; ++i) {
+    vkDestroySemaphore(s_rendererState.logicalDevice,
+                       s_rendererState.imageAvailableSemaphores[i],
+                       s_rendererState.pAllocator);
 
+    vkDestroySemaphore(s_rendererState.logicalDevice,
+                       s_rendererState.renderFinishedSemaphores[i],
+                       s_rendererState.pAllocator);
+
+    vkDestroyFence(s_rendererState.logicalDevice,
+                   s_rendererState.inFlightFences[i],
+                   s_rendererState.pAllocator);
+  }
+
+  ogeFree(s_rendererState.imageAvailableSemaphores);
+  ogeFree(s_rendererState.renderFinishedSemaphores);
+  ogeFree(s_rendererState.inFlightFences);
+
+  // Command buffers
+  vkFreeCommandBuffers(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.graphics,
+                       s_rendererState.swapchainImageCount,
+                       s_rendererState.commandBuffers.graphics);
+
+  vkFreeCommandBuffers(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.transfer,
+                       s_rendererState.swapchainImageCount,
+                       s_rendererState.commandBuffers.transfer);
+
+  vkFreeCommandBuffers(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.compute,
+                       s_rendererState.swapchainImageCount,
+                       s_rendererState.commandBuffers.compute);
+
+  vkFreeCommandBuffers(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.present,
+                       s_rendererState.swapchainImageCount,
+                       s_rendererState.commandBuffers.present);
+
+  ogeFree(s_rendererState.commandBuffers.graphics);
+  ogeFree(s_rendererState.commandBuffers.transfer);
+  ogeFree(s_rendererState.commandBuffers.compute);
+  ogeFree(s_rendererState.commandBuffers.present);
+
+  // Commands pools
+  vkDestroyCommandPool(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.graphics,
+                       s_rendererState.pAllocator);
+
+  vkDestroyCommandPool(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.transfer,
+                       s_rendererState.pAllocator);
+
+  vkDestroyCommandPool(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.compute,
+                       s_rendererState.pAllocator);
+
+  vkDestroyCommandPool(s_rendererState.logicalDevice,
+                       s_rendererState.commandPools.present,
+                       s_rendererState.pAllocator);
+
+  // Frame buffers
+  for (u32 i = 0; i < s_rendererState.swapchainImageCount; ++i) {
+    vkDestroyFramebuffer(s_rendererState.logicalDevice,
+                         s_rendererState.framebuffers[i],
+                         s_rendererState.pAllocator);
+  }
 
   vkDestroyPipeline(s_rendererState.logicalDevice,
-                    s_rendererState.pipeline,
+                    s_rendererState.graphicsPipeline,
                     s_rendererState.pAllocator);
 
   vkDestroyPipelineLayout(s_rendererState.logicalDevice,
-                          s_rendererState.pipelineLayout,
+                          s_rendererState.graphicsPipelineLayout,
                           s_rendererState.pAllocator);
 
   vkDestroyRenderPass(s_rendererState.logicalDevice,
                       s_rendererState.renderPass,
                       s_rendererState.pAllocator);
 
+  // Image views
   for (u32 i = 0; i < s_rendererState.swapchainImageCount; ++i) {
     vkDestroyImageView(s_rendererState.logicalDevice,
                        s_rendererState.swapchainImageViews[i], 
                        s_rendererState.pAllocator);
   }
+  ogeFree(s_rendererState.swapchainImageViews);
+  ogeFree(s_rendererState.swapchainImages);
 
   vkDestroySwapchainKHR(s_rendererState.logicalDevice,
                         s_rendererState.swapchain,
@@ -976,4 +1332,158 @@ void ogeRendererTerminate() {
 
   s_rendererState.initialized = OGE_FALSE;
   OGE_INFO("Renderer terminated.");
+}
+
+void ogeRendererStartScene() {
+  vkWaitForFences(
+    s_rendererState.logicalDevice, 1,
+    &s_rendererState.inFlightFences[s_rendererState.currentFrameIndex],
+    VK_TRUE, UINT64_MAX);
+
+  VkResult result = vkAcquireNextImageKHR(
+    s_rendererState.logicalDevice,
+    s_rendererState.swapchain,
+    UINT64_MAX,
+    s_rendererState.
+      imageAvailableSemaphores[s_rendererState.currentFrameIndex],
+    VK_NULL_HANDLE,
+    &s_rendererState.currentImageIndex
+  );
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    // recreateSwapchain();
+    OGE_WARN("Swapchain recreation reuquired.");
+    return;
+  }
+  OGE_ASSERT(result == VK_SUCCESS ||
+             result == VK_SUBOPTIMAL_KHR,
+             "Failed to acquire image.");
+
+  const VkCommandBuffer commandBuffer = 
+    s_rendererState.commandBuffers.graphics[s_rendererState.currentFrameIndex];
+
+  vkResetFences(
+    s_rendererState.logicalDevice,
+    1,
+    &s_rendererState.inFlightFences[s_rendererState.currentImageIndex]
+  );
+
+  vkResetCommandBuffer(commandBuffer, 0);
+
+  // Begin graphics command buffer
+  const VkCommandBufferBeginInfo graphicsCommandBufferBeginInfo = {
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .pNext            = 0,
+    .flags            = 0,
+    .pInheritanceInfo = 0,
+  };
+
+  result = vkBeginCommandBuffer(commandBuffer,
+                                &graphicsCommandBufferBeginInfo);
+  OGE_ASSERT(result == VK_SUCCESS, "Failed to begin Vulkan graphics command buffer.");
+
+  // Begin render pass
+  const VkRenderPassBeginInfo renderPassBeginInfo = {
+    .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+    .pNext             = 0,
+    .renderPass        = s_rendererState.renderPass,
+    .framebuffer       =
+      s_rendererState.framebuffers[s_rendererState.currentImageIndex],
+    .renderArea.offset = {0, 0},
+    .renderArea.extent = s_rendererState.swapchainExtent,
+    .clearValueCount   = 1,
+    .pClearValues      = &s_rendererState.frameClearColor,
+  };
+
+  vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    s_rendererState.graphicsPipeline);
+
+  const VkViewport viewport = {
+    .x = 0.0f,
+    .y = 0.0f,
+    .width  = s_rendererState.swapchainExtent.width,
+    .height = s_rendererState.swapchainExtent.height,
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f,
+  };
+  vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+  const VkRect2D scissor = {
+    .offset = {0, 0},
+    .extent = s_rendererState.swapchainExtent,
+  };
+  vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+
+void ogeRendererEndScene() {
+  const VkCommandBuffer commandBuffer = 
+    s_rendererState.commandBuffers.graphics[s_rendererState.currentFrameIndex];
+  vkCmdEndRenderPass(commandBuffer);
+
+  VkResult result = vkEndCommandBuffer(commandBuffer);
+  OGE_ASSERT(result == VK_SUCCESS, "Failed to end Vulkan graphics command buffer.");
+
+  const VkSemaphore waitSemaphores[] = {
+    s_rendererState.imageAvailableSemaphores[s_rendererState.currentFrameIndex],
+  };
+
+  const VkPipelineStageFlags waitStages[] = {
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+  };
+
+  const VkCommandBuffer commandBuffers[] = {
+    s_rendererState.commandBuffers.graphics[s_rendererState.currentFrameIndex],
+  };
+
+  const VkSemaphore signalSemaphores[] = {
+    s_rendererState.renderFinishedSemaphores[s_rendererState.currentFrameIndex]
+  };
+
+  const VkSubmitInfo submitInfo = {
+    .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .pNext                = 0,
+    .waitSemaphoreCount   = 1,
+    .pWaitSemaphores      = waitSemaphores,
+    .pWaitDstStageMask    = waitStages,
+    .commandBufferCount   = 1,
+    .pCommandBuffers      = commandBuffers,
+    .signalSemaphoreCount = 1,
+    .pSignalSemaphores    = signalSemaphores,
+  };
+
+  result = vkQueueSubmit(
+    s_rendererState.queues.graphics, 1, &submitInfo,
+    s_rendererState.inFlightFences[s_rendererState.currentFrameIndex]);
+  OGE_ASSERT(result == VK_SUCCESS, "Failed to submit Vulkan graphics command buffer.");
+
+  const VkPresentInfoKHR presentInfo = {
+    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    .pNext = 0,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = signalSemaphores,
+    .swapchainCount = 1,
+    .pSwapchains = &s_rendererState.swapchain,
+    .pImageIndices = &s_rendererState.currentImageIndex,
+  };
+
+  result = vkQueuePresentKHR(s_rendererState.queues.present, &presentInfo);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR ||
+      result == VK_SUBOPTIMAL_KHR /*|| m_frameBufferResized */)
+  {
+    // m_frameBufferResized = false;
+    // recreateSwapchain();
+    OGE_WARN("Swapchain recreation required.");
+  }
+  OGE_ASSERT(result == VK_SUCCESS, "Failed to present Vulkan image.");
+
+  s_rendererState.currentFrameIndex = 
+    (s_rendererState.currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void ogeRendererWaitIdle() {
+  vkDeviceWaitIdle(s_rendererState.logicalDevice);
 }

@@ -91,6 +91,8 @@ void ogeRun() {
     ogeInputUpdate();
   }
   OGE_INFO("Quitting main cycle.");
+
+  ogeRendererWaitIdle();
 }
 
 void ogeTerminate() {
