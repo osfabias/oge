@@ -6,7 +6,7 @@
 #include "oge/core/logging.h"
 #include "oge/core/assertion.h"
 
-struct {
+static struct {
   b8                      initialized;
   const OplKeyboardState *keyboardStateCurrent;
   OplKeyboardState        keyboardStatePrevious;

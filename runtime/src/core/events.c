@@ -7,7 +7,7 @@
 
 #define MAX_EVENT_CODES 1024
 
-struct {
+static struct {
   b8 initialized;
   OgeEventCallback* callbacks[MAX_EVENT_CODES]; // darrays
 } s_eventsState = { .initialized = OGE_FALSE };

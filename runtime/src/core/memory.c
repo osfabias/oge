@@ -41,7 +41,7 @@ char* s_memoryTagNames[OGE_MEMORY_TAG_MAX_ENUM] = {
 };
 #endif
 
-struct {
+static struct {
   b8 initialized;
 #ifdef OGE_DEBUG
   u64 totalUsage; 

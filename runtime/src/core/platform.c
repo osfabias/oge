@@ -4,7 +4,7 @@
 #include "oge/core/assertion.h"
 #include "oge/defines.h"
 
-struct {
+static struct {
   b8 initialized;
   OplWindow mainWindow;
 } s_platformState = { .initialized = OGE_FALSE };

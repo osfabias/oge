@@ -7,7 +7,7 @@
 #include "oge/core/application.h"
 #include "oge/renderer/renderer.h"
 
-struct {
+static struct {
   b8 initialized;
   const OgeApplication *application;
 } s_ogeState = { .initialized = OGE_FALSE };
