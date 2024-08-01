@@ -2,6 +2,7 @@
 *think about cool description*
 
 Currently supported platforms:
+- Linux;
 - MacOS.
 
 # Quick start
