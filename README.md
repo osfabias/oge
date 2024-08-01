@@ -25,7 +25,7 @@ git submodule update
 mkdir build
 cd build
 cmake .. # add -DCMAKE_BUILD_TYPE=Debug for debug build
-cmake --build .
+cmake --build . -j 8
 ```
 
 ### 3. Start binary.
