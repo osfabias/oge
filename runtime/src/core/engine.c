@@ -9,8 +9,12 @@
 
 static struct {
   b8 initialized;
+  b8 terminateRequested;
   const OgeApplication *application;
-} s_ogeState = { .initialized = OGE_FALSE };
+} s_ogeState = {
+  .initialized        = OGE_FALSE,
+  .terminateRequested = OGE_FALSE,
+};
 
 OGE_INLINE b8 initSystems() {
   const OgeInitInfo initInfo = *s_ogeState.application->ogeInitInfo;
@@ -52,7 +56,7 @@ b8 ogeInit(const OgeApplication *application) {
     "Trying to initialize OGE while it's already initialized."
   );
 
-  OGE_INFO("OGE info\nversion: %d.%d.%d",
+  OGE_INFO("OGE info:\n\n\t➜ Version:      %d.%d.%d\n\t➜ Graphics API: Vulkan ⛰\n",
            OGE_VERSION_MAJOR,
            OGE_VERSION_MINOR,
            OGE_VERSION_PATCH);
@@ -75,13 +79,15 @@ b8 ogeInit(const OgeApplication *application) {
 
 void ogeRun() {
   OGE_INFO("Entering main cycle.");
-  while (!ogePlatformAppShouldClose()) {
+  while (!s_ogeState.terminateRequested &&
+         !ogePlatformAppShouldClose()) {
     ogePlatformPumpMessages();
 
     if (!s_ogeState.application->update()) {
       OGE_ERROR("Failed on OGE application update function call.");
       break;
     }
+
 
     if (!s_ogeState.application->render()) {
       OGE_ERROR("Failed on OGE application render function call.");
@@ -107,4 +113,8 @@ void ogeTerminate() {
   terminateSystems();
 
   OGE_INFO("OGE terminated.");
+}
+
+void ogeRequestTerminate() {
+  s_ogeState.terminateRequested = OGE_TRUE;
 }

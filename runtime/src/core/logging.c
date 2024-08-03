@@ -42,14 +42,30 @@ void ogeLoggingTerminate() {
 }
 
 void ogeLog(OgeLogLevel level, const char *msg, ...) {
-  if (level < s_loggingState.logLevel) { return; }
-
   // TODO: These string operations are all pretty slow. This needs to be
   // moved to another thread eventually, along with the file writes, to
   // avoid slowing things down while the engine is trying to run.
-  const char* levelPrefixes[6] = {
-    "TRACE ", "INFO  ", "WARN  ", "ERROR ", "FATAL ",
+  static const char* levelPrefixes[5] = {
+    " >", " ℹ", " WARNING ", "  ERROR  ", "  FATAL  ",
   };
+
+  static const OplFgColor fgColors[5] = {
+    OPL_FG_COLOR_BRIGHT_CYAN,
+    OPL_FG_COLOR_BRIGHT_GREEN,
+    OPL_FG_COLOR_BLACK,
+    OPL_FG_COLOR_BRIGHT_WHITE,
+    OPL_FG_COLOR_BRIGHT_WHITE,
+  };
+
+  static const OplBgColor bgColors[5] = {
+    OPL_BG_COLOR_DEFAULT,
+    OPL_BG_COLOR_DEFAULT,
+    OPL_BG_COLOR_BRIGHT_YELLOW,
+    OPL_BG_COLOR_RED,
+    OPL_BG_COLOR_RED,
+  };
+
+  if (level < s_loggingState.logLevel) { return; }
 
   // Technically imposes a 4k character limit on a single
   // log entry, but... DON'T DO THAT!
@@ -68,9 +84,22 @@ void ogeLog(OgeLogLevel level, const char *msg, ...) {
   vsnprintf(formattedMessage, 4096, msg, valist);
   va_end(valist);
 
-  // Prepend log level to message.
-  sprintf(outMessage, "%s | %s\n", levelPrefixes[level], formattedMessage);
+  if (level > OGE_LOG_LEVEL_INFO) {
+    oplConsoleWrite("\n");
+    oplConsoleSetColor(fgColors[level], bgColors[level]);
+    oplConsoleWrite("%s", levelPrefixes[level]);
+    oplConsoleSetTextStyle(OPL_TEXT_STYLE_NORMAL);
+    oplConsoleWrite(" %s\n\n", formattedMessage);
+  } else {
+    oplConsoleSetColor(fgColors[level], bgColors[level]);
+    oplConsoleWrite(levelPrefixes[level]);
 
-  // Pass along to console consumers.
-  oplConsoleWrite(outMessage, 1 + level);
+    if (level == OGE_LOG_LEVEL_TRACE) {
+      oplConsoleSetColor(OPL_FG_COLOR_BRIGHT_BLACK, OPL_BG_COLOR_DEFAULT);
+    }
+    else {
+      oplConsoleSetTextStyle(OPL_TEXT_STYLE_NORMAL);
+    }
+    oplConsoleWrite(" %s\n", formattedMessage);
+  }
 }

@@ -90,12 +90,12 @@ static struct {
 };
 
 const char *s_ppRequiredDeviceExtensions[] = {
-#ifdef OGE_PLATFORM_APPLE
+#if defined(OGE_PLATFORM_APPLE)
   #define REQUIRED_DEVICE_EXTENSIONS_COUNT 2
 
   VK_KHR_SWAPCHAIN_EXTENSION_NAME,
   "VK_KHR_portability_subset",
-#elif OGE_PLATFORM_LINUX
+#elif defined(OGE_PLATFORM_LINUX)
   #define REQUIRED_DEVICE_EXTENSIONS_COUNT 1
 
   VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -351,7 +351,7 @@ OGE_INLINE b8 selectGPU(/* requirements ? */) {
       &s_rendererState.swapchainSupport);
 
     OGE_INFO(
-      "Selected GPU:\nname: %s\ndriver version: %d.%d.%d\nVulkan API version: %d.%d.%d", 
+      "Selected GPU:\n\n\t➜ Name:               %s\n\t➜ Driver version:     %d.%d.%d\n\t➜ Vulkan API version: %d.%d.%d\n", 
       deviceProperties.deviceName,
 
       VK_VERSION_MAJOR(deviceProperties.driverVersion),

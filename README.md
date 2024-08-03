@@ -37,6 +37,16 @@ cd bin
 
 You're done!
 
+# Testing
+For testing OGE you need to firstly build project.
+Than use this commands to start ctest.
+
+```shell
+# from oge/
+cd build/tests
+ctest
+```
+
 # Documentation
 ```shell
 # from oge/

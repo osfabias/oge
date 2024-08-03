@@ -6,7 +6,7 @@
 
 static struct {
   b8 initialized;
-  OplWindow mainWindow;
+  OplWindow *mainWindow;
 } s_platformState = { .initialized = OGE_FALSE };
 
 b8 ogePlatformInit(const OgePlatformInitInfo *initInfo) {
@@ -38,6 +38,20 @@ b8 ogePlatformInit(const OgePlatformInitInfo *initInfo) {
   s_platformState.initialized = OGE_TRUE;
 
   OGE_INFO("Platform layer initialized.");
+
+  #if defined(OGE_PLATFORM_APPLE)
+    #define OS_NAME "MacOS "
+    #define PLATFORM_NAME "Cocoa"
+  #elif defined(OGE_PLATFORM_LINUX)
+    #define OS_NAME "Linux "
+    #define PLATFORM_NAME "X11"
+  #elif defifed(OGE_PLATFORM_WIN32)
+    #define OS_NAME "Windows "
+    #define PLATFORM_NAME "Win32"
+  #endif
+
+  OGE_INFO("Platform layer info:\n\n\t➜ OS:       %s\n\t➜ Platform: %s\n",
+           OS_NAME, PLATFORM_NAME);
   return OGE_TRUE;
 }
 

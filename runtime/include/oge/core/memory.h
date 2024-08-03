@@ -2,11 +2,6 @@
  * @file memory.h
  * @brief The header of the memory system 
  *
- * In order to safe OGE API style, ability to track memory usage and
- * do not provoke any overhead instead of direct use of OPL functions
- * we are using macro wrappers (and functions for alloc, realloc and free
- * functions in debug build).
- *
  * Copyright (c) 2023-2024 Osfabias
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,14 +53,13 @@ typedef enum OgeMemoryTag {
  *
  * Should be called before any OGE function is called.
  */
-void ogeMemoryInit();
+OGE_API void ogeMemoryInit();
 
 /**
  * @brief Terminates memory system.
  */
-void ogeMemoryTerminate();
+OGE_API void ogeMemoryTerminate();
 
-#ifdef OGE_DEBUG
 /**
  * @brief Allocates a block of memory.
  * @param size A size of block in bytes.
@@ -88,41 +82,13 @@ OGE_API void* ogeRealloc(void *block, u64 size);
  */
 OGE_API void ogeFree(void *block);
 
-#else
-/**
- * @brief Allocates a block of memory.
- * @param size A size of block in bytes.
- * @param memoryTag A memory tag.
- * @return Returns a pointer to an allocated memory block.
- */
-#define ogeAlloc(size, memoryTag) \
-  oplAlloc(size)
-
-/**
- * @brief Reallocates a block of memory.
- * @param block A pointer to a block of memory.
- * @param size A new size of block in bytes.
- * @return Returns a pointer to a reallocated memory block.
- */
-#define ogeRealloc(block, size) \
-  oplRealloc(block, size)
-
-/**
- * @brief Frees a block of memory.
- * @param block A pointer to a block of memory.
- */
-#define ogeFree(block) \
-  oplFree(block)
-#endif
-
 /**
  * @brief Copies a block of memory.
  * @param dst A pointer to a memory block to copy to.
  * @param str A pointer to a memory block to copy from.
  * @param size A size of memory to copy in bytes.
  */
-#define ogeMemCpy(dst, src, size) \
-  oplMemCpy(dst, src, size)
+OGE_API void ogeMemCpy(void *dst, const void *src, u64 size);
 
 /**
  * @brief Sets a block of memory to a value.
@@ -130,8 +96,7 @@ OGE_API void ogeFree(void *block);
  * @param value A value to set a memory block to.
  * @param size A size of the memory block to set value to.
  */
-#define ogeMemSet(block, value, size) \
-  oplMemSet(block, value, size)
+OGE_API void ogeMemSet(void *block, i32 value, u64 size);
 
 /**
  * @brief Moves a block of memory.
@@ -139,8 +104,7 @@ OGE_API void ogeFree(void *block);
  * @param src A pointer to a block of memory to move to.
  * @param size A size of the memory block to move in bytes.
  */
-#define ogeMemMove(dst, src, size) \
-  oplMemMove(dst, src, size)
+OGE_API void ogeMemMove(void *dst, const void *src, u64 size);
 
 /**
  * @brief Compares two blocks of memory.
@@ -148,8 +112,7 @@ OGE_API void ogeFree(void *block);
  * @return Retuns 0 if block are equal, otherwise returns a
  *         non-zero value.
  */
-#define ogeMemCmp(block1, block2, size) \
-  oplMemCmp(block1, block2, size)
+OGE_API i32 ogeMemCmp(const void *block1, const void *block2, u64 size);
 
 /**
  * @brief Returns a debug info.

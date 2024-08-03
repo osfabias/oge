@@ -61,3 +61,8 @@ OGE_API void ogeRun();
  * @brief Terminates OGE.
  */
 OGE_API void ogeTerminate();
+
+/**
+ * @brief Requests OGE termination.
+ */
+OGE_API void ogeRequestTerminate();

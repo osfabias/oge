@@ -1,4 +1,4 @@
-project(oge VERSION 0.0.1)
+message(STATUS "Configuring OGE runtime...")
 
 # ~ find packages
 find_package(Vulkan REQUIRED)
@@ -13,8 +13,6 @@ add_library(oge SHARED
   ./src/core/platform.c
 
   ./src/renderer/renderer.c
-
-  ./src/utils/clock.c
 
   ./src/containers/darray.c
   )
@@ -34,5 +32,5 @@ else()
   target_compile_definitions(oge PRIVATE OGE_RELEASE)
 endif()
 
-# ~ configure libraries
-add_subdirectory(lib)
+# ~ configure dependencies 
+add_subdirectory(deps)

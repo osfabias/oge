@@ -72,8 +72,8 @@ void ogeMemoryTerminate() {
   OGE_INFO("Memory system terminated.");
 }
 
-#ifdef OGE_DEBUG
 void* ogeAlloc(u64 size, OgeMemoryTag memoryTag) {
+#ifdef OGE_DEBUG
   if (memoryTag == OGE_MEMORY_TAG_UNKNOWN) {
     OGE_WARN("ogeAllocate called with OGE_MEMORY_TAG_UNKNOWN. Set memory tag to different.");
   }
@@ -91,9 +91,12 @@ void* ogeAlloc(u64 size, OgeMemoryTag memoryTag) {
   s_memoryState.perTagUsage[memoryTag] += size;
   
   return MEMORY_HTOS(blockHeader);
+#endif
+  return oplAlloc(size);
 }
 
 void* ogeRealloc(void *block, u64 size) {
+#ifdef OGE_DEBUG
   OgeMemoryDebugHeader *blockHeader = MEMORY_STOH(block);
 
   s_memoryState.totalUsage -= blockHeader->size - size;
@@ -104,17 +107,38 @@ void* ogeRealloc(void *block, u64 size) {
   blockHeader->size = size;
 
   return MEMORY_HTOS(blockHeader);
+#endif
+  return oplRealloc(block, size);
 }
 
 void ogeFree(void *block) {
+#ifdef OGE_DEBUG
   const OgeMemoryDebugHeader *blockHeader = MEMORY_STOH(block);
 
   s_memoryState.totalUsage -= blockHeader->size;
   s_memoryState.perTagUsage[blockHeader->tag] -= blockHeader->size;
 
   oplFree(MEMORY_STOH(block));
-}
+#else
+  oplFree(block);
 #endif
+}
+
+void ogeMemCpy(void *dst, const void *src, u64 size) {
+  oplMemCpy(dst, src, size);
+}
+
+void ogeMemSet(void *block, i32 value, u64 size) {
+  oplMemSet(block, value, size);
+}
+
+void ogeMemMove(void *dst, const void *src, u64 size) {
+  oplMemMove(dst, src, size);
+}
+
+i32 ogeMemCmp(const void *block1, const void *block2, u64 size) {
+  return oplMemCmp(block1, block2, size);
+}
 
 const char* ogeMemoryGetDebugInfo() {
   #ifdef OGE_DEBUG
